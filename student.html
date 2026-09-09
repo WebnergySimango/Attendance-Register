@@ -4,17 +4,25 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Student — Attendance Register</title>
+<script src="/js/theme.js"></script>
 <link rel="stylesheet" href="/css/style.css" />
+<link rel="icon" href="/images/msu-logo.jpg" />
 </head>
 <body>
 <header class="site-header">
-  <div class="crest-placeholder">MSU</div>
-  <div class="titles">
-    <h1>Attendance Register</h1>
-    <p>Student</p>
+  <div class="brand">
+    <img src="/images/msu-logo.jpg" alt="Midlands State University crest" class="crest" />
+    <div class="titles">
+      <h1>Attendance Register</h1>
+      <p>Student</p>
+    </div>
+  </div>
+  <div class="header-actions">
+    <a href="/index.html">Home</a>
+    <button id="themeToggleBtn" class="theme-toggle"></button>
   </div>
 </header>
-<main>
+<main class="narrow">
 
   <!-- STEP 1: Activate or log in -->
   <section id="authSection" class="card">
@@ -55,6 +63,8 @@
 
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <script>
+initThemeToggle('themeToggleBtn');
+
 let mode = 'login'; // or 'activate'
 const authTitle = document.getElementById('authTitle');
 const authSubtitle = document.getElementById('authSubtitle');

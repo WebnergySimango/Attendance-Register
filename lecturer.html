@@ -4,19 +4,27 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Lecturer — Attendance Register</title>
+<script src="/js/theme.js"></script>
 <link rel="stylesheet" href="/css/style.css" />
+<link rel="icon" href="/images/msu-logo.jpg" />
 </head>
 <body>
 <header class="site-header">
-  <div class="crest-placeholder">MSU</div>
-  <div class="titles">
-    <h1>Attendance Register</h1>
-    <p>Lecturer</p>
+  <div class="brand">
+    <img src="/images/msu-logo.jpg" alt="Midlands State University crest" class="crest" />
+    <div class="titles">
+      <h1>Attendance Register</h1>
+      <p>Lecturer</p>
+    </div>
+  </div>
+  <div class="header-actions">
+    <a href="/index.html">Home</a>
+    <button id="themeToggleBtn" class="theme-toggle"></button>
   </div>
 </header>
 <main>
 
-  <section id="loginSection" class="card">
+  <section id="loginSection" class="card" style="max-width:480px;margin:0 auto">
     <h2>Log in</h2>
     <label>Staff number</label>
     <input id="staffNumber" autocomplete="username" />
@@ -26,12 +34,12 @@
     <div id="loginMessage"></div>
   </section>
 
-  <div id="dashboard" style="display:none">
+  <div id="dashboard" class="page-grid" style="display:none">
 
     <section class="card">
       <h2>Upload student roster</h2>
-      <p class="subtle">Excel file with columns: reg_number, full_name, programme, phone, gender.</p>
-      <input type="file" id="rosterFile" accept=".xlsx,.xls" />
+      <p class="subtle">Excel file (.xlsx) with columns: reg_number, full_name, programme, phone, gender. Old .xls files: open in Excel/Sheets and "Save As" .xlsx first.</p>
+      <input type="file" id="rosterFile" accept=".xlsx" />
       <button id="uploadBtn">Upload spreadsheet</button>
       <div id="uploadMessage"></div>
     </section>
@@ -58,33 +66,42 @@
       <div id="sessionMessage"></div>
     </section>
 
-    <section class="card" id="liveSection" style="display:none">
+    <section class="card span-full" id="liveSection" style="display:none">
       <h2 id="liveModuleTitle">Live check-in</h2>
-      <div class="qr-box"><img id="qrImg" alt="QR code" /></div>
-      <p class="rotate-note" id="rotateNote"></p>
-      <div class="counter" id="presentCount">0</div>
-      <p class="counter-label">students checked in</p>
-      <button class="secondary" id="closeSessionBtn">Close check-in</button>
+      <div class="page-grid" style="grid-template-columns: 300px 1fr">
+        <div>
+          <div class="qr-box"><img id="qrImg" alt="QR code" /></div>
+          <p class="rotate-note" id="rotateNote"></p>
+          <div class="counter" id="presentCount">0</div>
+          <p class="counter-label">students checked in</p>
+          <button class="secondary" id="closeSessionBtn">Close check-in</button>
+        </div>
+        <div>
+          <h2 style="margin-top:0">Manual add (no smartphone)</h2>
+          <label>Reg number</label>
+          <input id="manualRegNumber" />
+          <button id="manualMarkBtn">Mark present</button>
+          <div id="manualMessage"></div>
 
-      <h2 style="margin-top:26px">Manual add (no smartphone)</h2>
-      <label>Reg number</label>
-      <input id="manualRegNumber" />
-      <button id="manualMarkBtn">Mark present</button>
-      <div id="manualMessage"></div>
-
-      <table id="attendanceTable">
-        <thead><tr><th>Reg number</th><th>Name</th><th>Status</th></tr></thead>
-        <tbody></tbody>
-      </table>
+          <table id="attendanceTable">
+            <thead><tr><th>Reg number</th><th>Name</th><th>Status</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
     </section>
 
-    <button class="secondary" id="logoutBtn">Log out</button>
+    <div class="span-full" style="max-width:200px">
+      <button class="secondary" id="logoutBtn">Log out</button>
+    </div>
   </div>
 
 </main>
 <footer class="site-footer">Midlands State University · Attendance Register (Pilot)</footer>
 
 <script>
+initThemeToggle('themeToggleBtn');
+
 function showMessage(el, text, type) {
   el.innerHTML = `<div class="message ${type}">${text}</div>`;
 }
@@ -100,7 +117,7 @@ document.getElementById('loginBtn').addEventListener('click', async () => {
   const data = await r.json();
   if (!r.ok) return showMessage(msg, data.error, 'error');
   document.getElementById('loginSection').style.display = 'none';
-  document.getElementById('dashboard').style.display = 'block';
+  document.getElementById('dashboard').style.display = 'grid';
 });
 
 document.getElementById('uploadBtn').addEventListener('click', async () => {

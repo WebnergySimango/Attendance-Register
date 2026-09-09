@@ -4,19 +4,27 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Admin — Attendance Register</title>
+<script src="/js/theme.js"></script>
 <link rel="stylesheet" href="/css/style.css" />
+<link rel="icon" href="/images/msu-logo.jpg" />
 </head>
 <body>
 <header class="site-header">
-  <div class="crest-placeholder">MSU</div>
-  <div class="titles">
-    <h1>Attendance Register</h1>
-    <p>Admin</p>
+  <div class="brand">
+    <img src="/images/msu-logo.jpg" alt="Midlands State University crest" class="crest" />
+    <div class="titles">
+      <h1>Attendance Register</h1>
+      <p>Admin</p>
+    </div>
+  </div>
+  <div class="header-actions">
+    <a href="/index.html">Home</a>
+    <button id="themeToggleBtn" class="theme-toggle"></button>
   </div>
 </header>
 <main>
 
-  <section id="loginSection" class="card">
+  <section id="loginSection" class="card" style="max-width:480px;margin:0 auto">
     <h2>Log in</h2>
     <label>Username</label>
     <input id="username" autocomplete="username" />
@@ -28,55 +36,76 @@
 
   <div id="dashboard" style="display:none">
 
-    <section class="card">
-      <h2>Create a lecturer account</h2>
-      <label>Staff number</label>
-      <input id="staffNumber" />
-      <label>Full name</label>
-      <input id="fullName" />
-      <label>Email (optional)</label>
-      <input id="email" />
-      <label>Temporary password</label>
-      <input id="lecturerPassword" type="password" />
-      <button id="createLecturerBtn">Create lecturer</button>
-      <div id="createLecturerMessage"></div>
-    </section>
+    <div class="stat-row" style="margin-bottom:20px">
+      <div class="stat-box"><div class="num" id="statLecturers">0</div><div class="label">Lecturers</div></div>
+      <div class="stat-box"><div class="num" id="statSessions">0</div><div class="label">Sessions</div></div>
+      <div class="stat-box"><div class="num" id="statOpen">0</div><div class="label">Open right now</div></div>
+      <div class="stat-box"><div class="num" id="statPresent">0</div><div class="label">Total checked in</div></div>
+    </div>
 
-    <section class="card">
-      <h2>Lecturers</h2>
-      <table id="lecturerTable">
-        <thead><tr><th>Staff number</th><th>Name</th><th>Email</th></tr></thead>
-        <tbody></tbody>
-      </table>
-    </section>
+    <div class="page-grid">
 
-    <section class="card">
-      <h2>All sessions (institution-wide)</h2>
-      <table id="sessionsTable">
-        <thead><tr><th>Module</th><th>Lecturer</th><th>Status</th><th>Present</th></tr></thead>
-        <tbody></tbody>
-      </table>
-    </section>
+      <section class="card">
+        <h2>Create a lecturer account</h2>
+        <label>Staff number</label>
+        <input id="staffNumber" />
+        <label>Full name</label>
+        <input id="fullName" />
+        <label>Email (optional)</label>
+        <input id="email" />
+        <label>Temporary password</label>
+        <input id="lecturerPassword" type="password" />
+        <button id="createLecturerBtn">Create lecturer</button>
+        <div id="createLecturerMessage"></div>
+      </section>
 
-    <section class="card">
-      <h2>System settings</h2>
-      <p class="subtle">Changes apply immediately, no redeploy needed.</p>
-      <label>QR rotation interval (seconds)</label>
-      <input id="rotateSeconds" type="number" min="5" />
-      <label>Campus WiFi IP range(s) — comma-separated CIDR blocks</label>
-      <input id="ipRanges" placeholder="e.g. 41.191.0.0/16, 196.43.0.0/17" />
-      <p class="subtle" id="ipCheckStatus"></p>
-      <button id="saveSettingsBtn">Save settings</button>
-      <div id="settingsMessage"></div>
-    </section>
+      <section class="card">
+        <h2>Lecturers</h2>
+        <table id="lecturerTable">
+          <thead><tr><th>Staff number</th><th>Name</th><th>Email</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </section>
 
-    <button class="secondary" id="logoutBtn">Log out</button>
+      <section class="card span-full">
+        <h2>All sessions (institution-wide)</h2>
+        <table id="sessionsTable">
+          <thead><tr><th>Module</th><th>Lecturer</th><th>Status</th><th>Present</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </section>
+
+      <section class="card span-full">
+        <h2>System settings</h2>
+        <p class="subtle">Changes apply immediately, no redeploy needed.</p>
+        <div class="page-grid" style="grid-template-columns: 1fr 1fr">
+          <div>
+            <label>QR rotation interval (seconds)</label>
+            <input id="rotateSeconds" type="number" min="5" />
+          </div>
+          <div>
+            <label>Campus WiFi IP range(s) — comma-separated CIDR blocks</label>
+            <input id="ipRanges" placeholder="e.g. 41.191.0.0/16, 196.43.0.0/17" />
+          </div>
+        </div>
+        <p class="subtle" id="ipCheckStatus"></p>
+        <button id="saveSettingsBtn" style="max-width:220px">Save settings</button>
+        <div id="settingsMessage"></div>
+      </section>
+
+    </div>
+
+    <div style="max-width:200px;margin-top:20px">
+      <button class="secondary" id="logoutBtn">Log out</button>
+    </div>
   </div>
 
 </main>
 <footer class="site-footer">Midlands State University · Attendance Register (Pilot)</footer>
 
 <script>
+initThemeToggle('themeToggleBtn');
+
 function showMessage(el, text, type) {
   el.innerHTML = `<div class="message ${type}">${text}</div>`;
 }
@@ -122,6 +151,7 @@ async function loadLecturers() {
   const r = await fetch('/api/admin/lecturers');
   if (!r.ok) return;
   const data = await r.json();
+  document.getElementById('statLecturers').textContent = data.length;
   document.querySelector('#lecturerTable tbody').innerHTML = data.map(l =>
     `<tr><td>${l.staff_number}</td><td>${l.full_name}</td><td>${l.email || '—'}</td></tr>`
   ).join('');
@@ -131,6 +161,9 @@ async function loadSessions() {
   const r = await fetch('/api/admin/sessions');
   if (!r.ok) return;
   const data = await r.json();
+  document.getElementById('statSessions').textContent = data.length;
+  document.getElementById('statOpen').textContent = data.filter(s => s.is_open).length;
+  document.getElementById('statPresent').textContent = data.reduce((sum, s) => sum + s.present_count, 0);
   document.querySelector('#sessionsTable tbody').innerHTML = data.map(s =>
     `<tr><td>${s.module_name}</td><td>${s.lecturer_name}</td><td>${s.is_open ? 'Open' : 'Closed'}</td><td>${s.present_count}</td></tr>`
   ).join('');
@@ -143,7 +176,7 @@ async function loadSettings() {
   document.getElementById('rotateSeconds').value = data.qr_rotate_seconds;
   document.getElementById('ipRanges').value = data.allowed_ip_ranges;
   document.getElementById('ipCheckStatus').textContent = data.ip_check_disabled
-    ? 'Note: IP check is currently disabled via DISABLE_IP_CHECK in .env (for testing).'
+    ? 'Note: IP check is currently disabled via DISABLE_IP_CHECK (for testing).'
     : 'IP check is active — students off this range will be blocked from scanning.';
 }
 

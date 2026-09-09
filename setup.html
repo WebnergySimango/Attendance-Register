@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Setup — Attendance Register</title>
+<script src="/js/theme.js"></script>
+<link rel="stylesheet" href="/css/style.css" />
+<link rel="icon" href="/images/msu-logo.jpg" />
+</head>
+<body>
+<header class="site-header">
+  <div class="brand">
+    <img src="/images/msu-logo.jpg" alt="Midlands State University crest" class="crest" />
+    <div class="titles">
+      <h1>Attendance Register</h1>
+      <p>One-time admin setup</p>
+    </div>
+  </div>
+  <div class="header-actions">
+    <a href="/index.html">Home</a>
+    <button id="themeToggleBtn" class="theme-toggle"></button>
+  </div>
+</header>
+<main class="narrow">
+  <section class="card">
+    <h2>Create the first admin account</h2>
+    <p class="subtle">This only works once — it refuses to run again after an admin already exists. Delete this page (or just stop using it) once you're done.</p>
+
+    <label>Setup code</label>
+    <input id="setupCode" type="password" placeholder="Matches SETUP_CODE in your Vercel env vars" />
+    <label>Username</label>
+    <input id="username" placeholder="e.g. admin1" />
+    <label>Full name</label>
+    <input id="fullName" placeholder="e.g. Registrar Admin" />
+    <label>Password (8+ characters)</label>
+    <input id="password" type="password" />
+    <button id="createBtn">Create admin account</button>
+    <div id="message"></div>
+  </section>
+</main>
+<footer class="site-footer">Midlands State University · Attendance Register (Pilot)</footer>
+
+<script>
+initThemeToggle('themeToggleBtn');
+
+document.getElementById('createBtn').addEventListener('click', async () => {
+  const setup_code = document.getElementById('setupCode').value;
+  const username = document.getElementById('username').value.trim();
+  const full_name = document.getElementById('fullName').value.trim();
+  const password = document.getElementById('password').value;
+  const msg = document.getElementById('message');
+
+  if (!setup_code || !username || !full_name || !password) {
+    msg.innerHTML = '<div class="message error">Please fill in every field.</div>';
+    return;
+  }
+
+  const r = await fetch('/api/setup/create-admin', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ setup_code, username, full_name, password }),
+  });
+  const data = await r.json();
+  if (!r.ok) {
+    msg.innerHTML = `<div class="message error">${data.error}</div>`;
+    return;
+  }
+  msg.innerHTML = '<div class="message success">Admin account created. Go to /admin.html to log in.</div>';
+});
+</script>
+</body>
+</html>

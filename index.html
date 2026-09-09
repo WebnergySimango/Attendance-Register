@@ -4,17 +4,24 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Attendance Register — Midlands State University</title>
+<script src="/js/theme.js"></script>
 <link rel="stylesheet" href="/css/style.css" />
+<link rel="icon" href="/images/msu-logo.jpg" />
 </head>
 <body>
 <header class="site-header">
-  <div class="crest-placeholder">MSU</div>
-  <div class="titles">
-    <h1>Attendance Register</h1>
-    <p>Midlands State University</p>
+  <div class="brand">
+    <img src="/images/msu-logo.jpg" alt="Midlands State University crest" class="crest" />
+    <div class="titles">
+      <h1>Attendance Register</h1>
+      <p>Midlands State University</p>
+    </div>
+  </div>
+  <div class="header-actions">
+    <button id="themeToggleBtn" class="theme-toggle"></button>
   </div>
 </header>
-<main>
+<main class="narrow">
   <h2>Continue as</h2>
   <p class="subtle">Select your role to sign in.</p>
   <div class="role-links">
@@ -24,5 +31,6 @@
   </div>
 </main>
 <footer class="site-footer">Midlands State University · Attendance Register (Pilot)</footer>
+<script>initThemeToggle('themeToggleBtn');</script>
 </body>
 </html>

@@ -79,6 +79,12 @@ app.post(
   async (req, res) => {
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
 
+    if (/\.xls$/i.test(req.file.originalname)) {
+      return res.status(400).json({
+        error: 'This is an old .xls file, which this system can\'t read. Open it in Excel or Google Sheets and use "Save As" / "Download as" → .xlsx, then upload that instead.',
+      });
+    }
+
     try {
       const workbook = new ExcelJS.Workbook();
       await workbook.xlsx.load(req.file.buffer);
