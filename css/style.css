@@ -269,13 +269,13 @@ footer.site-footer {
 /* ---------- Landing (role picker) ---------- */
 
 .landing {
-  max-width: 900px;
-  margin: 6vh auto 0;
+  max-width: 10000px;
+  margin: vh auto 0;
   display: flex;
   border: 1px solid var(--border);
   border-radius: 14px;
-  overflow: hidden;
-  min-height: 380px;
+  overflow: scroll;
+  min-height: 600px;
   position: relative;
 }
 
