@@ -1,0 +1,24 @@
+{
+  "name": "attendance-register",
+  "version": "1.0.0",
+  "description": "MSU Attendance Register — Vercel + Postgres deployment",
+  "main": "api/index.js",
+  "scripts": {
+    "dev": "node local-dev.js"
+  },
+  "license": "ISC",
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "cookie-parser": "^1.4.7",
+    "dotenv": "^17.4.2",
+    "exceljs": "^4.4.0",
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.7.0",
+    "helmet": "^8.3.0",
+    "ip-range-check": "^0.2.1",
+    "jsonwebtoken": "^9.0.3",
+    "multer": "^2.3.0",
+    "pg": "^8.13.1",
+    "qrcode": "^1.5.4"
+  }
+}

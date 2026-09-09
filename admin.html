@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Admin — Attendance Register</title>
+<link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+<header class="site-header">
+  <div class="crest-placeholder">MSU</div>
+  <div class="titles">
+    <h1>Attendance Register</h1>
+    <p>Admin</p>
+  </div>
+</header>
+<main>
+
+  <section id="loginSection" class="card">
+    <h2>Log in</h2>
+    <label>Username</label>
+    <input id="username" autocomplete="username" />
+    <label>Password</label>
+    <input id="loginPassword" type="password" autocomplete="current-password" />
+    <button id="loginBtn">Log in</button>
+    <div id="loginMessage"></div>
+  </section>
+
+  <div id="dashboard" style="display:none">
+
+    <section class="card">
+      <h2>Create a lecturer account</h2>
+      <label>Staff number</label>
+      <input id="staffNumber" />
+      <label>Full name</label>
+      <input id="fullName" />
+      <label>Email (optional)</label>
+      <input id="email" />
+      <label>Temporary password</label>
+      <input id="lecturerPassword" type="password" />
+      <button id="createLecturerBtn">Create lecturer</button>
+      <div id="createLecturerMessage"></div>
+    </section>
+
+    <section class="card">
+      <h2>Lecturers</h2>
+      <table id="lecturerTable">
+        <thead><tr><th>Staff number</th><th>Name</th><th>Email</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <section class="card">
+      <h2>All sessions (institution-wide)</h2>
+      <table id="sessionsTable">
+        <thead><tr><th>Module</th><th>Lecturer</th><th>Status</th><th>Present</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <section class="card">
+      <h2>System settings</h2>
+      <p class="subtle">Changes apply immediately, no redeploy needed.</p>
+      <label>QR rotation interval (seconds)</label>
+      <input id="rotateSeconds" type="number" min="5" />
+      <label>Campus WiFi IP range(s) — comma-separated CIDR blocks</label>
+      <input id="ipRanges" placeholder="e.g. 41.191.0.0/16, 196.43.0.0/17" />
+      <p class="subtle" id="ipCheckStatus"></p>
+      <button id="saveSettingsBtn">Save settings</button>
+      <div id="settingsMessage"></div>
+    </section>
+
+    <button class="secondary" id="logoutBtn">Log out</button>
+  </div>
+
+</main>
+<footer class="site-footer">Midlands State University · Attendance Register (Pilot)</footer>
+
+<script>
+function showMessage(el, text, type) {
+  el.innerHTML = `<div class="message ${type}">${text}</div>`;
+}
+
+document.getElementById('loginBtn').addEventListener('click', async () => {
+  const username = document.getElementById('username').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  const msg = document.getElementById('loginMessage');
+  const r = await fetch('/api/admin/login', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password }),
+  });
+  const data = await r.json();
+  if (!r.ok) return showMessage(msg, data.error, 'error');
+  document.getElementById('loginSection').style.display = 'none';
+  document.getElementById('dashboard').style.display = 'block';
+  loadLecturers();
+  loadSessions();
+  loadSettings();
+});
+
+document.getElementById('createLecturerBtn').addEventListener('click', async () => {
+  const staff_number = document.getElementById('staffNumber').value.trim();
+  const full_name = document.getElementById('fullName').value.trim();
+  const email = document.getElementById('email').value.trim();
+  const password = document.getElementById('lecturerPassword').value;
+  const msg = document.getElementById('createLecturerMessage');
+  const r = await fetch('/api/admin/lecturers', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ staff_number, full_name, email, password }),
+  });
+  const data = await r.json();
+  if (!r.ok) return showMessage(msg, data.error, 'error');
+  showMessage(msg, 'Lecturer account created.', 'success');
+  document.getElementById('staffNumber').value = '';
+  document.getElementById('fullName').value = '';
+  document.getElementById('email').value = '';
+  document.getElementById('lecturerPassword').value = '';
+  loadLecturers();
+});
+
+async function loadLecturers() {
+  const r = await fetch('/api/admin/lecturers');
+  if (!r.ok) return;
+  const data = await r.json();
+  document.querySelector('#lecturerTable tbody').innerHTML = data.map(l =>
+    `<tr><td>${l.staff_number}</td><td>${l.full_name}</td><td>${l.email || '—'}</td></tr>`
+  ).join('');
+}
+
+async function loadSessions() {
+  const r = await fetch('/api/admin/sessions');
+  if (!r.ok) return;
+  const data = await r.json();
+  document.querySelector('#sessionsTable tbody').innerHTML = data.map(s =>
+    `<tr><td>${s.module_name}</td><td>${s.lecturer_name}</td><td>${s.is_open ? 'Open' : 'Closed'}</td><td>${s.present_count}</td></tr>`
+  ).join('');
+}
+
+async function loadSettings() {
+  const r = await fetch('/api/admin/settings');
+  if (!r.ok) return;
+  const data = await r.json();
+  document.getElementById('rotateSeconds').value = data.qr_rotate_seconds;
+  document.getElementById('ipRanges').value = data.allowed_ip_ranges;
+  document.getElementById('ipCheckStatus').textContent = data.ip_check_disabled
+    ? 'Note: IP check is currently disabled via DISABLE_IP_CHECK in .env (for testing).'
+    : 'IP check is active — students off this range will be blocked from scanning.';
+}
+
+document.getElementById('saveSettingsBtn').addEventListener('click', async () => {
+  const qr_rotate_seconds = document.getElementById('rotateSeconds').value;
+  const allowed_ip_ranges = document.getElementById('ipRanges').value;
+  const msg = document.getElementById('settingsMessage');
+  const r = await fetch('/api/admin/settings', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ qr_rotate_seconds, allowed_ip_ranges }),
+  });
+  const data = await r.json();
+  if (!r.ok) return showMessage(msg, data.error, 'error');
+  showMessage(msg, 'Settings saved and active immediately.', 'success');
+});
+
+document.getElementById('logoutBtn').addEventListener('click', async () => {
+  await fetch('/api/admin/logout', { method: 'POST' });
+  location.reload();
+});
+</script>
+</body>
+</html>

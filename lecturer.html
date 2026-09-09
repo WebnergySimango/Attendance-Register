@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Lecturer — Attendance Register</title>
+<link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+<header class="site-header">
+  <div class="crest-placeholder">MSU</div>
+  <div class="titles">
+    <h1>Attendance Register</h1>
+    <p>Lecturer</p>
+  </div>
+</header>
+<main>
+
+  <section id="loginSection" class="card">
+    <h2>Log in</h2>
+    <label>Staff number</label>
+    <input id="staffNumber" autocomplete="username" />
+    <label>Password</label>
+    <input id="loginPassword" type="password" autocomplete="current-password" />
+    <button id="loginBtn">Log in</button>
+    <div id="loginMessage"></div>
+  </section>
+
+  <div id="dashboard" style="display:none">
+
+    <section class="card">
+      <h2>Upload student roster</h2>
+      <p class="subtle">Excel file with columns: reg_number, full_name, programme, phone, gender.</p>
+      <input type="file" id="rosterFile" accept=".xlsx,.xls" />
+      <button id="uploadBtn">Upload spreadsheet</button>
+      <div id="uploadMessage"></div>
+    </section>
+
+    <section class="card">
+      <h2>Add one student manually</h2>
+      <label>Reg number</label>
+      <input id="addRegNumber" />
+      <label>Full name</label>
+      <input id="addFullName" />
+      <label>Programme</label>
+      <input id="addProgramme" />
+      <button id="addStudentBtn">Add student</button>
+      <div id="addMessage"></div>
+    </section>
+
+    <section class="card">
+      <h2>Start a session</h2>
+      <label>Module name</label>
+      <input id="moduleName" placeholder="e.g. CS301 — Databases" />
+      <label>Venue</label>
+      <input id="venue" placeholder="e.g. Lecture Theatre 3" />
+      <button id="createSessionBtn">Create session</button>
+      <div id="sessionMessage"></div>
+    </section>
+
+    <section class="card" id="liveSection" style="display:none">
+      <h2 id="liveModuleTitle">Live check-in</h2>
+      <div class="qr-box"><img id="qrImg" alt="QR code" /></div>
+      <p class="rotate-note" id="rotateNote"></p>
+      <div class="counter" id="presentCount">0</div>
+      <p class="counter-label">students checked in</p>
+      <button class="secondary" id="closeSessionBtn">Close check-in</button>
+
+      <h2 style="margin-top:26px">Manual add (no smartphone)</h2>
+      <label>Reg number</label>
+      <input id="manualRegNumber" />
+      <button id="manualMarkBtn">Mark present</button>
+      <div id="manualMessage"></div>
+
+      <table id="attendanceTable">
+        <thead><tr><th>Reg number</th><th>Name</th><th>Status</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <button class="secondary" id="logoutBtn">Log out</button>
+  </div>
+
+</main>
+<footer class="site-footer">Midlands State University · Attendance Register (Pilot)</footer>
+
+<script>
+function showMessage(el, text, type) {
+  el.innerHTML = `<div class="message ${type}">${text}</div>`;
+}
+
+document.getElementById('loginBtn').addEventListener('click', async () => {
+  const staff_number = document.getElementById('staffNumber').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  const msg = document.getElementById('loginMessage');
+  const r = await fetch('/api/lecturer/login', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ staff_number, password }),
+  });
+  const data = await r.json();
+  if (!r.ok) return showMessage(msg, data.error, 'error');
+  document.getElementById('loginSection').style.display = 'none';
+  document.getElementById('dashboard').style.display = 'block';
+});
+
+document.getElementById('uploadBtn').addEventListener('click', async () => {
+  const fileInput = document.getElementById('rosterFile');
+  const msg = document.getElementById('uploadMessage');
+  if (!fileInput.files.length) return showMessage(msg, 'Choose a file first.', 'error');
+  const form = new FormData();
+  form.append('roster', fileInput.files[0]);
+  const r = await fetch('/api/lecturer/roster/upload', { method: 'POST', body: form });
+  const data = await r.json();
+  if (!r.ok) return showMessage(msg, data.error, 'error');
+  showMessage(msg, `Imported ${data.imported} students.` + (data.skippedRows.length ? ` Skipped rows: ${data.skippedRows.join(', ')}` : ''), 'success');
+});
+
+document.getElementById('addStudentBtn').addEventListener('click', async () => {
+  const reg_number = document.getElementById('addRegNumber').value.trim();
+  const full_name = document.getElementById('addFullName').value.trim();
+  const programme = document.getElementById('addProgramme').value.trim();
+  const msg = document.getElementById('addMessage');
+  const r = await fetch('/api/lecturer/roster/add', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ reg_number, full_name, programme }),
+  });
+  const data = await r.json();
+  if (!r.ok) return showMessage(msg, data.error, 'error');
+  showMessage(msg, 'Student added.', 'success');
+  document.getElementById('addRegNumber').value = '';
+  document.getElementById('addFullName').value = '';
+  document.getElementById('addProgramme').value = '';
+});
+
+let currentSessionId = null;
+let qrInterval = null;
+let attendanceInterval = null;
+
+document.getElementById('createSessionBtn').addEventListener('click', async () => {
+  const module_name = document.getElementById('moduleName').value.trim();
+  const venue = document.getElementById('venue').value.trim();
+  const msg = document.getElementById('sessionMessage');
+  if (!module_name) return showMessage(msg, 'Module name is required.', 'error');
+
+  const r = await fetch('/api/lecturer/sessions', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ module_name, venue }),
+  });
+  const data = await r.json();
+  if (!r.ok) return showMessage(msg, data.error, 'error');
+  currentSessionId = data.sessionId;
+
+  await fetch(`/api/lecturer/sessions/${currentSessionId}/open`, { method: 'POST' });
+  document.getElementById('liveModuleTitle').textContent = `Live check-in — ${module_name}`;
+  document.getElementById('liveSection').style.display = 'block';
+  refreshQr();
+  refreshAttendance();
+  qrInterval = setInterval(refreshQr, 4000);
+  attendanceInterval = setInterval(refreshAttendance, 4000);
+});
+
+async function refreshQr() {
+  const r = await fetch(`/api/lecturer/sessions/${currentSessionId}/qr`);
+  if (!r.ok) return;
+  const data = await r.json();
+  document.getElementById('qrImg').src = data.dataUrl;
+  document.getElementById('rotateNote').textContent = `Code refreshes automatically — next rotation in ~${data.rotatesInSeconds}s`;
+}
+
+async function refreshAttendance() {
+  const r = await fetch(`/api/lecturer/sessions/${currentSessionId}/attendance`);
+  if (!r.ok) return;
+  const data = await r.json();
+  document.getElementById('presentCount').textContent = data.present;
+  const tbody = document.querySelector('#attendanceTable tbody');
+  tbody.innerHTML = data.rows.map(row =>
+    `<tr><td>${row.reg_number}</td><td>${row.full_name}</td><td>${row.status}</td></tr>`
+  ).join('');
+}
+
+document.getElementById('manualMarkBtn').addEventListener('click', async () => {
+  const reg_number = document.getElementById('manualRegNumber').value.trim();
+  const msg = document.getElementById('manualMessage');
+  const r = await fetch(`/api/lecturer/sessions/${currentSessionId}/mark`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ reg_number }),
+  });
+  const data = await r.json();
+  if (!r.ok) return showMessage(msg, data.error, 'error');
+  showMessage(msg, 'Marked present.', 'success');
+  document.getElementById('manualRegNumber').value = '';
+  refreshAttendance();
+});
+
+document.getElementById('closeSessionBtn').addEventListener('click', async () => {
+  await fetch(`/api/lecturer/sessions/${currentSessionId}/close`, { method: 'POST' });
+  clearInterval(qrInterval);
+  clearInterval(attendanceInterval);
+  document.getElementById('liveSection').style.display = 'none';
+});
+
+document.getElementById('logoutBtn').addEventListener('click', async () => {
+  await fetch('/api/lecturer/logout', { method: 'POST' });
+  location.reload();
+});
+</script>
+</body>
+</html>

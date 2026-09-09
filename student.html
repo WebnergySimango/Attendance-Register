@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Student — Attendance Register</title>
+<link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+<header class="site-header">
+  <div class="crest-placeholder">MSU</div>
+  <div class="titles">
+    <h1>Attendance Register</h1>
+    <p>Student</p>
+  </div>
+</header>
+<main>
+
+  <!-- STEP 1: Activate or log in -->
+  <section id="authSection" class="card">
+    <h2 id="authTitle">Log in</h2>
+    <p class="subtle" id="authSubtitle">Enter your registration number and password.</p>
+
+    <label>Registration number</label>
+    <input id="regNumber" placeholder="e.g. R123456A" autocomplete="username" />
+
+    <div id="passwordBlock">
+      <label>Password</label>
+      <input id="password" type="password" autocomplete="current-password" />
+    </div>
+
+    <div id="confirmPasswordBlock" style="display:none">
+      <label>Confirm password</label>
+      <input id="confirmPassword" type="password" autocomplete="new-password" />
+    </div>
+
+    <button id="primaryAuthBtn">Log in</button>
+    <div id="authMessage"></div>
+    <div class="link-row">
+      <a href="#" id="toggleModeLink">First time here? Activate your account</a>
+    </div>
+  </section>
+
+  <!-- STEP 2: Scan -->
+  <section id="scanSection" class="card" style="display:none">
+    <h2>Check in</h2>
+    <p class="subtle" id="whoami"></p>
+    <div id="reader" style="width:100%"></div>
+    <div id="scanMessage"></div>
+    <button class="secondary" id="logoutBtn">Log out</button>
+  </section>
+
+</main>
+<footer class="site-footer">Midlands State University · Attendance Register (Pilot)</footer>
+
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script>
+let mode = 'login'; // or 'activate'
+const authTitle = document.getElementById('authTitle');
+const authSubtitle = document.getElementById('authSubtitle');
+const confirmBlock = document.getElementById('confirmPasswordBlock');
+const primaryBtn = document.getElementById('primaryAuthBtn');
+const toggleLink = document.getElementById('toggleModeLink');
+const authMessage = document.getElementById('authMessage');
+
+function showMessage(el, text, type) {
+  el.innerHTML = `<div class="message ${type}">${text}</div>`;
+}
+
+toggleLink.addEventListener('click', (e) => {
+  e.preventDefault();
+  mode = mode === 'login' ? 'activate' : 'login';
+  if (mode === 'activate') {
+    authTitle.textContent = 'Activate your account';
+    authSubtitle.textContent = 'Enter the reg number your lecturer/admin registered, then set a password.';
+    confirmBlock.style.display = 'block';
+    primaryBtn.textContent = 'Activate account';
+    toggleLink.textContent = 'Already activated? Log in';
+  } else {
+    authTitle.textContent = 'Log in';
+    authSubtitle.textContent = 'Enter your registration number and password.';
+    confirmBlock.style.display = 'none';
+    primaryBtn.textContent = 'Log in';
+    toggleLink.textContent = 'First time here? Activate your account';
+  }
+  authMessage.innerHTML = '';
+});
+
+primaryBtn.addEventListener('click', async () => {
+  const reg_number = document.getElementById('regNumber').value.trim();
+  const password = document.getElementById('password').value;
+  authMessage.innerHTML = '';
+
+  if (!reg_number || !password) {
+    return showMessage(authMessage, 'Please fill in all fields.', 'error');
+  }
+
+  if (mode === 'activate') {
+    const confirmPassword = document.getElementById('confirmPassword').value;
+    if (password !== confirmPassword) {
+      return showMessage(authMessage, 'Passwords do not match.', 'error');
+    }
+    if (password.length < 8) {
+      return showMessage(authMessage, 'Password must be at least 8 characters.', 'error');
+    }
+    const r = await fetch('/api/student/activate', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reg_number, password }),
+    });
+    const data = await r.json();
+    if (!r.ok) return showMessage(authMessage, data.error, 'error');
+    showMessage(authMessage, 'Account activated. You can now log in.', 'success');
+    toggleLink.click();
+  } else {
+    const r = await fetch('/api/student/login', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reg_number, password }),
+    });
+    const data = await r.json();
+    if (!r.ok) return showMessage(authMessage, data.error, 'error');
+    enterScanMode(data.name);
+  }
+});
+
+function enterScanMode(name) {
+  document.getElementById('authSection').style.display = 'none';
+  document.getElementById('scanSection').style.display = 'block';
+  document.getElementById('whoami').textContent = `Signed in as ${name}`;
+  startScanner();
+}
+
+function startScanner() {
+  const scanMessage = document.getElementById('scanMessage');
+  const qr = new Html5Qrcode('reader');
+  let busy = false;
+  qr.start(
+    { facingMode: 'environment' },
+    { fps: 10, qrbox: 220 },
+    async (decodedText) => {
+      if (busy) return;
+      busy = true;
+      const r = await fetch('/api/student/scan', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: decodedText }),
+      });
+      const data = await r.json();
+      if (r.ok) {
+        showMessage(scanMessage, `Marked present for ${data.module} (${data.venue || 'venue not set'}).`, 'success');
+      } else {
+        showMessage(scanMessage, data.error, 'error');
+      }
+      setTimeout(() => { busy = false; }, 3000);
+    }
+  ).catch(() => {
+    showMessage(scanMessage, 'Could not access camera. Check browser permissions.', 'error');
+  });
+}
+
+document.getElementById('logoutBtn').addEventListener('click', async () => {
+  await fetch('/api/student/logout', { method: 'POST' });
+  location.reload();
+});
+</script>
+</body>
+</html>
