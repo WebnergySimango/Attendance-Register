@@ -274,7 +274,7 @@ footer.site-footer {
   display: flex;
   border: 1px solid var(--border);
   border-radius: 14px;
-  overflow: scroll;
+  overflow: hidden;
   min-height: 600px;
   position: relative;
 }
@@ -370,15 +370,15 @@ footer.site-footer {
 
 .landing .theme-toggle-mini {
   position: absolute;
-  top: 14px;
+  top: -21px;
   right: 14px;
-  width: 34px;
-  height: 34px;
+  width: 60px;
+  height: 60px;
   border-radius: 8px;
   background: transparent;
   border: 1px solid var(--border);
   color: var(--text-muted);
-  cursor: pointer;
+  cursor: auto;
 }
 
 .landing .theme-toggle-mini:hover {
