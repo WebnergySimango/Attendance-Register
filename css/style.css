@@ -265,3 +265,140 @@ footer.site-footer {
   .card { padding: 18px; }
   .counter { font-size: 32px; }
 }
+
+/* ---------- Landing (role picker) ---------- */
+
+.landing {
+  max-width: 900px;
+  margin: 6vh auto 0;
+  display: flex;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+  min-height: 380px;
+  position: relative;
+}
+
+.landing-panel {
+  flex: 0 0 38%;
+  background: var(--msu-blue);
+  color: #ffffff;
+  padding: 34px 28px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.landing-panel .crest-badge {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  margin-bottom: 18px;
+}
+
+.landing-panel .crest-badge img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.landing-panel h1 {
+  font-size: 22px;
+  margin: 0;
+  line-height: 1.3;
+}
+
+.landing-panel .location {
+  font-size: 13px;
+  color: #cfe0f7;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.landing-content {
+  flex: 1;
+  background: var(--surface);
+  padding: 34px 30px;
+}
+
+.landing-content h2 {
+  font-size: 15px;
+  color: var(--text-muted);
+  font-weight: 600;
+  margin: 0 0 18px;
+}
+
+.role-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.role-menu a {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-decoration: none;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 16px;
+  font-weight: 600;
+  font-size: 15px;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.role-menu a:hover {
+  border-color: var(--msu-blue);
+  background: var(--msu-blue-light);
+}
+
+.role-menu a .icon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  color: var(--msu-blue);
+}
+
+[data-theme="dark"] .role-menu a .icon { color: #7ba7ea; }
+
+.landing .theme-toggle-mini {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.landing .theme-toggle-mini:hover {
+  background: var(--bg);
+}
+
+@media (max-width: 640px) {
+  .landing {
+    flex-direction: column;
+    margin: 0;
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+    min-height: 0;
+  }
+  .landing-panel {
+    flex: none;
+    padding: 26px 20px;
+  }
+  .landing-content {
+    padding: 26px 20px;
+  }
+}
