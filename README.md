@@ -1,23 +1,18 @@
-# MSU Attendance — Lecture Check-in
+#Attendance Register — Lecture Check-in
 
 Students scan a rotating QR code with their own phone to check themselves
 into a lecture, in real time, synced instantly to the lecturer's screen.
-Four role-based sign-in tiers — Student, Lecturer, Chairperson, Admin — each
+Four role-based sign-in tiers Student, Lecturer, Chairperson, Admin: each
 with a real email/password account and strictly scoped access, enforced at
 the database level, not just in the app's UI.
-
-**Before this works, you need to do a one-time free setup — see
-[`SETUP.md`](./SETUP.md).** Everything in the app talks to your own free
-Firebase project, so enrollments, check-ins and reports sync between every
-device, instantly, for an institution of any size.
 
 ## How it works
 
 **Students**
 - Register once with their Reg Number, name, email and a password. The Reg
-  Number must already exist in the system — added automatically the first
+  Number must already exist in the system: added automatically the first
   time a Lecturer, Chairperson or Admin imports a class list that includes
-  it — which is what stops anyone fabricating an account out of thin air.
+  it which is what stops anyone fabricating an account out of thin air.
 - At a lecture, tap **Scan QR to check in**, point the camera at the code
   projected on the lecturer's screen, and they're marked present instantly.
 - **My modules** shows every module they're enrolled in, with a live
@@ -84,22 +79,4 @@ page reload needed, anywhere in the app.
 See the "Notes on security" section in `SETUP.md` for the full, honest
 details on what this does and doesn't protect against.
 
-## Files in this project
 
-| File | Purpose |
-|---|---|
-| `index.html` | The whole app — UI, styling, and logic |
-| `firebase-config.js` | **Edit this** — paste your Firebase project keys here |
-| `firestore.rules` | Security rules — paste into the Firebase console |
-| `firebase.json` | Optional config for one-command Firebase Hosting deploys |
-| `SETUP.md` | Step-by-step setup and deployment guide — start here |
-
-## Requirements
-
-- A free Firebase project (see `SETUP.md`)
-- Hosting the files somewhere with **HTTPS** — required for camera access
-  on phones (Firebase Hosting, Netlify, GitHub Pages, Vercel, etc. all work)
-- Students' and lecturers' phones need camera permission granted to the site
-
----
-Midlands State University — MSU Attendance
