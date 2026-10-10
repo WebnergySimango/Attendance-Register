@@ -1,0 +1,2295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script>
+(function(){
+  try {
+    var saved = localStorage.getItem('msuAttendanceTheme');
+    var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    document.documentElement.setAttribute('data-theme', saved || (prefersDark ? 'dark' : 'light'));
+  } catch(e) {}
+})();
+</script>
+<title>MSU Attendance — Lecture Check-in</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Cpolygon points='24,8 44,18 24,28 4,18' fill='%230B4C8C'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  /* ============ TOKENS — MSU blue / white ============ */
+  :root{
+    --bg:#f4f8fd; --bg-elevated:#ffffff; --panel:#ffffff; --panel-2:#eaf1fb;
+    --border:#d7e6f7; --border-soft:#e4eefa;
+    --text:#132340; --text-dim:#51648a; --text-faint:#8496b8;
+    --primary:#0b4c8c; --primary-dark:#083865; --primary-light:#4f8fd1;
+    --success:#12946a; --success-bg:rgba(18,148,106,.12);
+    --danger:#d5323f; --danger-bg:rgba(213,50,63,.12);
+    --warn:#b8790a; --warn-bg:rgba(184,121,10,.12);
+    --radius-lg:14px; --radius:10px; --radius-sm:6px;
+    --shadow:0 10px 30px rgba(19,35,64,.12);
+    --font-display:'Sora','Segoe UI',sans-serif;
+    --font-body:'Inter','Segoe UI',sans-serif;
+    --font-mono:'IBM Plex Mono','Consolas',monospace;
+    /* the brand panel is always this blue, in both light and dark mode — only the
+       content panel alongside it switches with the theme toggle */
+    --brand-blue:#0b4c8c; --brand-blue-deep:#083865; --brand-gold:#c6a24a;
+  }
+  html[data-theme="dark"]{
+    --bg:#0b1626; --bg-elevated:#101d31; --panel:#122238; --panel-2:#182944;
+    --border:#25395c; --border-soft:#1d2e4a;
+    --text:#eaf1fc; --text-dim:#a7b8d8; --text-faint:#748ab0;
+    --primary:#4f8fd1; --primary-dark:#2f6fed; --primary-light:#7fb2fb;
+    --success:#34d399; --success-bg:rgba(52,211,153,.14);
+    --danger:#fb6d6d; --danger-bg:rgba(251,109,109,.14);
+    --warn:#e3ab3d; --warn-bg:rgba(227,171,61,.14);
+    --shadow:0 10px 30px rgba(0,0,0,.4);
+  }
+  *,*::before,*::after{box-sizing:border-box;}
+  body{
+    margin:0; font-size:16px; background:var(--bg);
+    color:var(--text); font-family:var(--font-body); line-height:1.5; -webkit-font-smoothing:antialiased;
+    transition:background-color .2s ease, color .2s ease;
+  }
+  h1,h2,h3{font-family:var(--font-display); margin:0; letter-spacing:-0.01em;}
+  a{color:var(--primary);}
+  button{font-family:var(--font-body);}
+  :focus-visible{outline:2px solid var(--primary-light); outline-offset:2px; border-radius:4px;}
+  @media (prefers-reduced-motion: reduce){ *{animation-duration:.01ms !important; transition-duration:.01ms !important;} }
+
+  .wrap{max-width:1040px; margin:0 auto; padding:0 28px;}
+  .hidden{display:none !important;}
+
+  /* ---- app shell: a fixed blue/white brand panel beside the working content panel ---- */
+  .app-shell{display:grid; grid-template-columns:300px 1fr; min-height:100vh;}
+  .brand-panel{
+    background:var(--brand-blue); color:#fff; display:flex; flex-direction:column;
+    justify-content:space-between; gap:40px; padding:40px 30px;
+  }
+  .brand-badge{width:52px; height:52px; border-radius:50%; background:#fff; display:flex; align-items:center; justify-content:center; flex:none;}
+  .brand-panel-top{display:flex; flex-direction:column; gap:16px;}
+  .brand-panel-top h1{font-size:23px; font-weight:800; color:#fff; line-height:1.25;}
+  .brand-panel-top p{margin:0; font-size:14px; color:rgba(255,255,255,.78);}
+  .brand-panel-foot p{margin:0; font-size:13.5px; color:rgba(255,255,255,.78); line-height:1.6;}
+  .brand-panel-foot p.place{color:#fff; font-weight:600;}
+
+  .content-panel{background:var(--bg); display:flex; flex-direction:column; min-height:100vh;}
+  .content-topbar{display:flex; justify-content:flex-end; padding:22px 28px 0;}
+  .theme-toggle{
+    display:inline-flex; align-items:center; background:var(--panel); border:1px solid var(--border);
+    color:var(--text-dim); cursor:pointer; font-size:13.5px; font-weight:600; padding:9px 18px; border-radius:999px;
+    transition:border-color .15s ease, color .15s ease;
+  }
+  .theme-toggle:hover{border-color:var(--primary); color:var(--text);}
+  .header-actions{display:flex; align-items:center; gap:14px; font-size:14px; color:var(--text-dim);}
+
+  main.wrap{padding-top:28px; padding-bottom:40px; flex:1; width:100%;}
+
+  @media (max-width:880px){
+    .app-shell{grid-template-columns:1fr;}
+    .brand-panel{flex-direction:row; align-items:center; justify-content:flex-start; gap:16px; padding:20px 24px;}
+    .brand-panel-top{flex-direction:row; align-items:center; gap:14px;}
+    .brand-panel-top p, .brand-panel-foot{display:none;}
+    .brand-panel-top h1{font-size:18px;}
+    .brand-badge{width:40px; height:40px;}
+  }
+
+  .card{background:var(--panel); border:1px solid var(--border-soft); border-radius:var(--radius-lg); padding:20px 22px; margin-bottom:18px;}
+  .card-head{display:flex; align-items:baseline; justify-content:space-between; gap:10px; margin-bottom:16px; flex-wrap:wrap;}
+  .card-head h2{font-size:17px; font-weight:700;}
+  .card-head .hint, p.hint{font-size:13.5px; color:var(--text-faint); margin:2px 0 0;}
+
+  .field{display:flex; flex-direction:column; gap:6px; min-width:0;}
+  .field label{font-size:13.5px; color:var(--text-dim); font-weight:600;}
+  .field input, .field select, .field textarea{
+    background:var(--bg-elevated); border:1px solid var(--border); color:var(--text);
+    padding:10px 12px; border-radius:var(--radius-sm); font-size:15px; width:100%; font-family:var(--font-body);
+  }
+  .field input::placeholder, .field textarea::placeholder{color:var(--text-faint);}
+  .field input:focus, .field select:focus, .field textarea:focus{border-color:var(--primary);}
+  .field select[multiple]{min-height:88px;}
+  .form-grid{display:grid; grid-template-columns:repeat(5,1fr); gap:12px; align-items:end;}
+  @media (max-width: 900px){ .form-grid{grid-template-columns:repeat(2,1fr);} }
+  @media (max-width: 560px){ .form-grid{grid-template-columns:1fr;} }
+
+  .btn{border:none; cursor:pointer; font-weight:700; font-size:14.5px; padding:10px 18px; border-radius:var(--radius-sm); transition:.15s ease; white-space:nowrap; font-family:var(--font-body);}
+  .btn-primary{background:var(--primary); color:#fff;}
+  .btn-primary:hover{background:var(--primary-dark);}
+  .btn-ghost{background:transparent; border:1px solid var(--border); color:var(--text);}
+  .btn-ghost:hover{border-color:var(--text-dim);}
+  .btn-sm{padding:6px 12px; font-size:13px; border-radius:6px;}
+  .btn-danger-ghost{background:transparent; border:1px solid var(--border); color:var(--danger);}
+  .btn-danger-ghost:hover{background:var(--danger-bg); border-color:var(--danger);}
+  .btn:disabled{opacity:.45; cursor:not-allowed; transform:none;}
+  .btn-block{width:100%; display:block; text-align:center;}
+
+  .table-wrap{overflow-x:auto; border:1px solid var(--border-soft); border-radius:var(--radius);}
+  table{width:100%; border-collapse:collapse; font-size:14.5px; min-width:640px;}
+  thead th{text-align:left; font-size:12.5px; color:var(--text-dim); background:var(--bg-elevated); padding:11px 14px; border-bottom:1px solid var(--border-soft); white-space:nowrap; font-weight:600;}
+  tbody td{padding:11px 14px; border-bottom:1px solid var(--border-soft); color:var(--text);}
+  tbody tr:last-child td{border-bottom:none;}
+  td.mono{font-family:var(--font-mono); color:var(--text-dim); font-size:14px;}
+  .row-actions{display:flex; gap:6px;}
+
+  .empty-state{text-align:center; padding:30px 20px; color:var(--text-faint); font-size:14.5px;}
+
+  .badge{display:inline-flex; align-items:center; gap:5px; padding:4px 10px; border-radius:999px; font-size:12.5px; font-weight:700;}
+  .badge.present{background:var(--success-bg); color:var(--success);}
+  .badge.absent{background:var(--danger-bg); color:var(--danger);}
+  .badge.pending{background:var(--warn-bg); color:var(--warn);}
+  .badge.approved{background:var(--success-bg); color:var(--success);}
+
+  .status-toggle{border:1px solid var(--border); background:var(--bg-elevated); border-radius:999px; padding:6px 14px; font-size:13px; font-weight:700; cursor:pointer;}
+  .status-toggle.present{background:var(--success-bg); border-color:var(--success); color:var(--success);}
+  .status-toggle.absent{color:var(--text-dim);}
+
+  .tabs{display:flex; gap:4px; border-bottom:1px solid var(--border-soft); margin-bottom:20px; overflow-x:auto;}
+  .tab-btn{background:transparent; border:none; color:var(--text-dim); font-size:14.5px; font-weight:600; padding:10px 14px; cursor:pointer; position:relative; white-space:nowrap;}
+  .tab-btn::after{content:""; position:absolute; left:10px; right:10px; bottom:-1px; height:2px; background:transparent; border-radius:2px;}
+  .tab-btn:hover{color:var(--text);}
+  .tab-btn.active{color:var(--text);}
+  .tab-btn.active::after{background:var(--primary);}
+  section.tab-panel{display:none;}
+  section.tab-panel.active{display:block; animation:fadeIn .18s ease;}
+  @keyframes fadeIn{from{opacity:0; transform:translateY(4px);} to{opacity:1; transform:translateY(0);}}
+
+  /* ---- role select ---- */
+  .eyebrow{font-size:12.5px; text-transform:uppercase; letter-spacing:.08em; color:var(--text-faint); font-weight:700; margin:0 0 16px;}
+  .role-list{display:flex; flex-direction:column; gap:10px; max-width:460px;}
+  .role-row{
+    display:flex; align-items:center; gap:14px; background:var(--panel); border:1px solid var(--border);
+    border-radius:var(--radius); padding:16px 18px; cursor:pointer; text-align:left; font-family:var(--font-body);
+    transition:border-color .15s ease, background-color .15s ease;
+  }
+  .role-row:hover{border-color:var(--primary); background:var(--panel-2);}
+  .role-icon{width:22px; height:22px; flex:none; color:var(--primary); display:flex; align-items:center; justify-content:center;}
+  .role-icon svg{width:100%; height:100%;}
+  .role-row strong{font-size:15.5px; font-weight:700; color:var(--text); font-family:var(--font-display);}
+
+  input.mono-input{font-family:var(--font-mono); letter-spacing:.05em;}
+
+  .welcome-row{display:flex; align-items:flex-start; justify-content:space-between; gap:10px; margin-bottom:18px; flex-wrap:wrap;}
+  .btn-scan{font-size:16px; padding:16px 22px; width:100%; border-radius:12px;}
+
+  .scan-video-wrap{position:relative; width:100%; max-width:420px; margin:0 auto; border-radius:var(--radius-lg); overflow:hidden; background:#000; aspect-ratio:1/1;}
+  .scan-video-wrap video{width:100%; height:100%; object-fit:cover; display:block;}
+  .scan-reticle{position:absolute; inset:12%; border:3px solid var(--primary-light); border-radius:16px; box-shadow:0 0 0 999px rgba(0,0,0,.35); pointer-events:none;}
+  .scan-card{text-align:center;}
+  .scan-card .btn{margin-top:18px;}
+
+  .result-panel{text-align:center; padding:34px 20px;}
+  .result-panel.result-ok h2{color:var(--success);}
+  .result-panel.result-fail h2{color:var(--danger);}
+  .result-actions{display:flex; gap:10px; justify-content:center; margin-top:18px; flex-wrap:wrap;}
+
+  .history-row{display:flex; align-items:center; justify-content:space-between; padding:11px 4px; border-bottom:1px solid var(--border-soft); font-size:14.5px; gap:10px;}
+  .history-row:last-child{border-bottom:none;}
+  .history-row .meta{color:var(--text-dim); font-size:13px;}
+
+  .login-box{max-width:380px; margin:26px auto 0;}
+
+  .checkin-stage{display:grid; grid-template-columns:250px 1fr; gap:26px;}
+  @media (max-width:760px){ .checkin-stage{grid-template-columns:1fr;} }
+  .qr-frame{background:#fff; border:1px solid var(--border); border-radius:var(--radius); padding:14px; display:flex; align-items:center; justify-content:center;}
+  .qr-frame img, .qr-frame canvas, .qr-frame table{display:block; width:100% !important; height:auto !important;}
+  .qr-timer{text-align:center; font-family:var(--font-mono); font-size:13px; color:var(--text-dim); margin-top:10px;}
+  .live-list{max-height:320px; overflow-y:auto;}
+  .live-row{display:flex; align-items:center; justify-content:space-between; padding:9px 4px; border-bottom:1px solid var(--border-soft); font-size:14px;}
+  .live-row:last-child{border-bottom:none;}
+  .live-empty{color:var(--text-faint); font-size:14px; padding:14px 4px;}
+
+  .item-row{display:flex; align-items:center; justify-content:space-between; gap:12px; padding:13px 4px; border-bottom:1px solid var(--border-soft); flex-wrap:wrap;}
+  .item-row:last-child{border-bottom:none;}
+  .item-row .title{font-weight:700; font-size:15px;}
+  .item-row .meta{font-size:13px; color:var(--text-dim); margin-top:3px;}
+  .item-row .meta.mono{font-family:var(--font-mono);}
+  .item-actions{display:flex; gap:8px; flex-wrap:wrap;}
+
+  .chart-grid{display:grid; grid-template-columns:1fr 1fr; gap:18px;}
+  @media (max-width:760px){ .chart-grid{grid-template-columns:1fr;} }
+  .chart-box{background:var(--bg-elevated); border:1px solid var(--border-soft); border-radius:var(--radius); padding:14px; height:260px; position:relative;}
+
+  .select-row{margin-bottom:16px;}
+  .subcard{background:var(--bg-elevated); border:1px solid var(--border-soft); border-radius:var(--radius); padding:16px 18px; margin-top:14px;}
+
+  #toast{position:fixed; bottom:22px; right:22px; left:22px; max-width:360px; margin-left:auto; background:var(--panel-2); border:1px solid var(--border); color:var(--text); padding:12px 18px; border-radius:var(--radius-sm); font-size:14px; box-shadow:var(--shadow); transform:translateY(20px); opacity:0; pointer-events:none; transition:.2s ease; z-index:100; display:flex; align-items:center; gap:8px;}
+  #toast.show{transform:translateY(0); opacity:1;}
+  #toast .dot{width:7px; height:7px; border-radius:50%; background:var(--success); flex:none;}
+</style>
+</head>
+<body>
+
+<div class="app-shell">
+
+  <aside class="brand-panel">
+    <div class="brand-panel-top">
+      <div class="brand-badge">
+        <svg width="30" height="30" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <polygon points="16,7 28,12 16,17 4,12" fill="#0b4c8c"/>
+          <path d="M9.5 14.5v5c0 2 2.9 3.6 6.5 3.6s6.5-1.6 6.5-3.6v-5" stroke="#0b4c8c" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+          <line x1="26" y1="12" x2="26" y2="19" stroke="#0b4c8c" stroke-width="1.4" stroke-linecap="round"/>
+          <circle cx="26" cy="20.4" r="1.6" fill="#c6a24a"/>
+        </svg>
+      </div>
+      <div>
+        <h1>MSU Attendance</h1>
+        <p>Lecture attendance register</p>
+      </div>
+    </div>
+    <div class="brand-panel-foot">
+      <p class="place">Midlands State University</p>
+      <p>Gweru, Zimbabwe</p>
+    </div>
+  </aside>
+
+  <div class="content-panel">
+    <div class="content-topbar">
+      <button class="theme-toggle" id="themeToggleBtn" type="button" aria-label="Toggle light and dark theme">
+        <span id="themeLabel">Dark mode</span>
+      </button>
+    </div>
+
+    <main class="wrap">
+
+      <!-- ================= ROLE SELECT ================= -->
+      <section id="screen-role">
+        <p class="eyebrow">Continue as</p>
+        <div class="role-list">
+          <button class="role-row" id="pickStudentBtn">
+            <span class="role-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.4"/><path d="M5 20c0-3.6 3.2-6.2 7-6.2s7 2.6 7 6.2"/></svg></span>
+            <strong>Student</strong>
+          </button>
+          <button class="role-row" id="pickLecturerBtn">
+            <span class="role-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="12" rx="1.6"/><path d="M8 20h8M12 16.5V20"/></svg></span>
+            <strong>Lecturer</strong>
+          </button>
+          <button class="role-row" id="pickChairpersonBtn">
+            <span class="role-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10l8-5 8 5"/><path d="M5 10v8h14v-8"/><path d="M9 18v-5M15 18v-5"/><path d="M3 20h18"/></svg></span>
+            <strong>Chairperson</strong>
+          </button>
+          <button class="role-row" id="pickAdminBtn">
+            <span class="role-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 5-3.2 8.5-7 10-3.8-1.5-7-5-7-10V6l7-3z"/><path d="M9 12l2 2 4-4"/></svg></span>
+            <strong>Admin</strong>
+          </button>
+        </div>
+      </section>
+
+  <!-- ================= STUDENT ================= -->
+  <section id="screen-student" class="hidden">
+    <div style="margin-bottom:14px;">
+      <button class="btn btn-ghost btn-sm" id="studentBackBtn">← Switch role</button>
+    </div>
+    <div id="studentContent"></div>
+  </section>
+
+  <!-- ================= LECTURER ================= -->
+  <section id="screen-lecturer" class="hidden">
+    <div style="margin-bottom:14px;">
+      <button class="btn btn-ghost btn-sm" id="lecturerBackBtn">← Switch role</button>
+    </div>
+    <div id="lecturerFlow"></div>
+
+    <div id="lecturerDashboard" class="hidden">
+      <div class="header-actions" style="justify-content:flex-end; margin-bottom:6px;">
+        <span id="lecturerNameLabel"></span>
+        <button class="btn btn-ghost btn-sm" id="lecturerSignOutBtn">Sign out</button>
+      </div>
+
+      <nav class="tabs" role="tablist">
+        <button class="tab-btn active" data-ltab="modules">My modules</button>
+        <button class="tab-btn" data-ltab="reports">Reports</button>
+      </nav>
+
+      <section class="tab-panel active" id="lpanel-modules">
+        <div class="card">
+          <div class="card-head"><h2>My module offerings</h2></div>
+          <div id="lecturerOfferingsList"></div>
+          <div class="empty-state hidden" id="lecturerOfferingsEmpty">No module offerings have been assigned to you yet — ask the Admin to assign you to one.</div>
+        </div>
+        <div class="card hidden" id="lecturerManagePanel"></div>
+      </section>
+
+      <section class="tab-panel" id="lpanel-reports">
+        <div class="card select-row">
+          <div class="field"><label for="lecturerReportsSelect">Module offering</label><select id="lecturerReportsSelect"></select></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><h2>Attendance charts</h2><button class="btn btn-ghost btn-sm" id="lecturerDownloadPdfBtn">Download charts as PDF</button></div>
+          <div class="chart-grid">
+            <div class="chart-box"><canvas id="lecturerTrendChart"></canvas></div>
+            <div class="chart-box"><canvas id="lecturerDpChart"></canvas></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head">
+            <h2>Attendance summary</h2>
+            <div class="item-actions">
+              <button class="btn btn-ghost btn-sm" id="lecturerExportCsvBtn">Download CSV</button>
+              <button class="btn btn-ghost btn-sm" id="lecturerExportReportBtn">Export to Excel</button>
+            </div>
+          </div>
+          <div class="table-wrap"><table>
+            <thead><tr><th>Name</th><th>Reg Number</th><th>Attended</th><th>Total sessions</th><th>Rate</th><th>DP status</th></tr></thead>
+            <tbody id="lecturerReportsBody"></tbody>
+          </table></div>
+          <div class="empty-state hidden" id="lecturerReportsEmpty">Nothing to report yet — import students and hold a session first.</div>
+        </div>
+      </section>
+    </div>
+  </section>
+
+  <!-- ================= CHAIRPERSON ================= -->
+  <section id="screen-chairperson" class="hidden">
+    <div style="margin-bottom:14px;">
+      <button class="btn btn-ghost btn-sm" id="chairpersonBackBtn">← Switch role</button>
+    </div>
+    <div id="chairpersonFlow"></div>
+
+    <div id="chairpersonDashboard" class="hidden">
+      <div class="header-actions" style="justify-content:flex-end; margin-bottom:6px;">
+        <span id="chairpersonNameLabel"></span>
+        <button class="btn btn-ghost btn-sm" id="chairpersonSignOutBtn">Sign out</button>
+      </div>
+
+      <nav class="tabs" role="tablist">
+        <button class="tab-btn active" data-ctab="modules">Department modules</button>
+        <button class="tab-btn" data-ctab="staff">Staff</button>
+        <button class="tab-btn" data-ctab="reports">Reports</button>
+      </nav>
+
+      <section class="tab-panel active" id="cpanel-modules">
+        <div class="card">
+          <div class="card-head"><h2>All module offerings in my department</h2></div>
+          <div id="chairpersonOfferingsList"></div>
+          <div class="empty-state hidden" id="chairpersonOfferingsEmpty">No module offerings in your department yet — ask the Admin to create one.</div>
+        </div>
+        <div class="card hidden" id="chairpersonManagePanel"></div>
+      </section>
+
+      <section class="tab-panel" id="cpanel-staff">
+        <div class="card">
+          <div class="card-head"><h2>Lecturers in my department</h2></div>
+          <div class="table-wrap"><table>
+            <thead><tr><th>Name</th><th>Staff ID</th><th>Email</th><th>Status</th><th></th></tr></thead>
+            <tbody id="chairpersonStaffTableBody"></tbody>
+          </table></div>
+          <div class="empty-state hidden" id="chairpersonStaffEmpty">No lecturer accounts in your department yet.</div>
+        </div>
+      </section>
+
+      <section class="tab-panel" id="cpanel-reports">
+        <div class="card select-row">
+          <div class="field"><label for="chairpersonReportsSelect">Module offering</label><select id="chairpersonReportsSelect"></select></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><h2>Attendance charts</h2><button class="btn btn-ghost btn-sm" id="chairpersonDownloadPdfBtn">Download charts as PDF</button></div>
+          <div class="chart-grid">
+            <div class="chart-box"><canvas id="chairpersonTrendChart"></canvas></div>
+            <div class="chart-box"><canvas id="chairpersonDpChart"></canvas></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head">
+            <h2>Attendance summary</h2>
+            <div class="item-actions">
+              <button class="btn btn-ghost btn-sm" id="chairpersonExportCsvBtn">Download CSV</button>
+              <button class="btn btn-ghost btn-sm" id="chairpersonExportReportBtn">Export to Excel</button>
+            </div>
+          </div>
+          <div class="table-wrap"><table>
+            <thead><tr><th>Name</th><th>Reg Number</th><th>Attended</th><th>Total sessions</th><th>Rate</th><th>DP status</th></tr></thead>
+            <tbody id="chairpersonReportsBody"></tbody>
+          </table></div>
+          <div class="empty-state hidden" id="chairpersonReportsEmpty">Nothing to report yet.</div>
+        </div>
+      </section>
+    </div>
+  </section>
+
+  <!-- ================= ADMIN ================= -->
+  <section id="screen-admin" class="hidden">
+    <div style="margin-bottom:14px;">
+      <button class="btn btn-ghost btn-sm" id="adminBackBtn">← Switch role</button>
+    </div>
+
+    <div class="card login-box" id="adminLoginWrap">
+      <div class="card-head"><h2>Admin sign-in</h2></div>
+      <form id="adminLoginForm" class="field" style="gap:12px;">
+        <div class="field"><label for="a-email">Email</label><input id="a-email" type="email" required></div>
+        <div class="field"><label for="a-pass">Password</label><input id="a-pass" type="password" required></div>
+        <button class="btn btn-primary btn-block" type="submit">Sign in</button>
+        <p class="hint"><a href="#" id="adminForgotLink">Forgot password?</a> · First time? See SETUP.md to create your admin account.</p>
+      </form>
+    </div>
+
+    <div id="adminDashboard" class="hidden">
+      <div class="header-actions" style="justify-content:flex-end; margin-bottom:6px;">
+        <span id="adminEmailLabel"></span>
+        <button class="btn btn-ghost btn-sm" id="adminSignOutBtn">Sign out</button>
+      </div>
+
+      <nav class="tabs" role="tablist">
+        <button class="tab-btn active" data-atab="structure">Structure</button>
+        <button class="tab-btn" data-atab="modules">Modules</button>
+        <button class="tab-btn" data-atab="offerings">Offerings</button>
+        <button class="tab-btn" data-atab="import">Import &amp; enrol</button>
+        <button class="tab-btn" data-atab="staff">Staff</button>
+        <button class="tab-btn" data-atab="reports">Reports</button>
+        <button class="tab-btn" data-atab="settings">Settings</button>
+      </nav>
+
+      <!-- STRUCTURE -->
+      <section class="tab-panel active" id="apanel-structure">
+        <div class="card">
+          <div class="card-head"><h2>Faculties</h2></div>
+          <form id="facultyForm" class="form-grid">
+            <div class="field"><label for="f-name">Faculty name</label><input id="f-name" required placeholder="e.g. Commerce"></div>
+            <div class="field"><label for="f-code">Code</label><input id="f-code" required placeholder="e.g. COM"></div>
+            <div class="field"><label for="f-dp">Default DP threshold %</label><input id="f-dp" type="number" min="0" max="100" value="75" required></div>
+            <div class="field"><button class="btn btn-primary" type="submit">Add faculty</button></div>
+          </form>
+          <div id="facultiesList" style="margin-top:14px;"></div>
+          <div class="empty-state hidden" id="facultiesEmpty">No faculties yet — add one above.</div>
+        </div>
+        <div class="card">
+          <div class="card-head"><h2>Departments</h2></div>
+          <form id="departmentForm" class="form-grid">
+            <div class="field"><label for="d-name">Department name</label><input id="d-name" required placeholder="e.g. Marketing"></div>
+            <div class="field"><label for="d-code">Code</label><input id="d-code" required placeholder="e.g. MKT"></div>
+            <div class="field"><label for="d-faculty">Faculty</label><select id="d-faculty"></select></div>
+            <div class="field"><button class="btn btn-primary" type="submit">Add department</button></div>
+          </form>
+          <div id="departmentsList" style="margin-top:14px;"></div>
+          <div class="empty-state hidden" id="departmentsEmpty">No departments yet — add one above.</div>
+        </div>
+        <div class="card">
+          <div class="card-head"><h2>Programmes</h2></div>
+          <form id="programmeForm" class="form-grid">
+            <div class="field"><label for="p-name">Programme name</label><input id="p-name" required placeholder="e.g. BCom Marketing Honours"></div>
+            <div class="field"><label for="p-code">Code</label><input id="p-code" required placeholder="e.g. HMKT"></div>
+            <div class="field"><label for="p-department">Department</label><select id="p-department"></select></div>
+            <div class="field"><label for="p-level">Level</label><select id="p-level"><option>Undergraduate</option><option>Postgraduate</option></select></div>
+            <div class="field"><button class="btn btn-primary" type="submit">Add programme</button></div>
+          </form>
+          <div id="programmesList" style="margin-top:14px;"></div>
+          <div class="empty-state hidden" id="programmesEmpty">No programmes yet — add one above.</div>
+        </div>
+      </section>
+
+      <!-- MODULES -->
+      <section class="tab-panel" id="apanel-modules">
+        <div class="card">
+          <div class="card-head"><h2>Add a module</h2></div>
+          <form id="moduleForm" class="form-grid">
+            <div class="field"><label for="mo-code">Module code</label><input id="mo-code" required placeholder="e.g. HCM301"></div>
+            <div class="field" style="grid-column:span 2;"><label for="mo-name">Module name</label><input id="mo-name" required placeholder="e.g. Consumer Behaviour"></div>
+            <div class="field"><label for="mo-department">Department</label><select id="mo-department"></select></div>
+            <div class="field"><label for="mo-credit">Credit hours</label><input id="mo-credit" type="number" min="0" value="12"></div>
+            <div class="field"><label for="mo-dp">DP override % (optional)</label><input id="mo-dp" type="number" min="0" max="100" placeholder="Uses faculty default"></div>
+            <div class="field"><button class="btn btn-primary" type="submit">Add module</button></div>
+          </form>
+        </div>
+        <div class="card">
+          <div class="card-head"><h2>All modules</h2></div>
+          <div id="modulesList"></div>
+          <div class="empty-state hidden" id="modulesEmpty">No modules yet — add one above.</div>
+        </div>
+      </section>
+
+      <!-- OFFERINGS -->
+      <section class="tab-panel" id="apanel-offerings">
+        <div class="card">
+          <div class="card-head"><h2>Create a module offering</h2><span class="hint">One per module, per semester, per academic year</span></div>
+          <form id="offeringForm" class="form-grid">
+            <div class="field" style="grid-column:span 2;"><label for="of-module">Module</label><select id="of-module"></select></div>
+            <div class="field"><label for="of-year">Academic year</label><input id="of-year" required placeholder="e.g. 2026"></div>
+            <div class="field"><label for="of-semester">Semester</label><select id="of-semester"><option>Semester 1</option><option>Semester 2</option></select></div>
+            <div class="field"><label for="of-campus">Campus</label><select id="of-campus">
+              <option>Gweru (Main)</option><option>Bulawayo</option><option>Harare</option><option>Kwekwe</option><option>Zvishavane</option>
+            </select></div>
+            <div class="field"><label for="of-day">Day</label><select id="of-day"><option>Monday</option><option>Tuesday</option><option>Wednesday</option><option>Thursday</option><option>Friday</option><option>Saturday</option></select></div>
+            <div class="field"><label for="of-start">Start time</label><input id="of-start" type="time" required></div>
+            <div class="field"><label for="of-end">End time</label><input id="of-end" type="time" required></div>
+            <div class="field"><label for="of-venue">Venue</label><input id="of-venue" placeholder="e.g. LT4"></div>
+            <div class="field"><label for="of-dp">DP threshold %</label><input id="of-dp" type="number" min="0" max="100"></div>
+            <div class="field" style="grid-column:span 2;"><label for="of-lecturers">Lecturer(s) — ctrl/cmd-click for more than one</label><select id="of-lecturers" multiple></select></div>
+            <div class="field" style="grid-column:span 2;"><label for="of-programmes">Programme(s) taking this module</label><select id="of-programmes" multiple></select></div>
+            <div class="field"><button class="btn btn-primary" type="submit">Add offering</button></div>
+          </form>
+        </div>
+        <div class="card">
+          <div class="card-head"><h2>All module offerings</h2></div>
+          <div id="offeringsList"></div>
+          <div class="empty-state hidden" id="offeringsEmpty">No module offerings yet — add one above.</div>
+        </div>
+      </section>
+
+      <!-- IMPORT & ENROL -->
+      <section class="tab-panel" id="apanel-import">
+        <div class="card select-row">
+          <div class="field"><label for="importOfferingSelect">Module offering</label><select id="importOfferingSelect"></select></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><h2>Import registered students</h2><span class="hint">CSV columns: Reg Number, Name, Programme</span></div>
+          <div class="field">
+            <label for="importFile">Upload a CSV file, or paste rows below</label>
+            <input id="importFile" type="file" accept=".csv,text/csv">
+          </div>
+          <div class="field" style="margin-top:10px;">
+            <textarea id="importText" rows="6" placeholder="R123456X, Tanaka Moyo, BCom Marketing Honours&#10;R123457X, Rutendo Chikafu, BCom Marketing Honours"></textarea>
+          </div>
+          <div style="display:flex; align-items:center; gap:14px; margin-top:12px;">
+            <button class="btn btn-primary" id="importBtn" type="button">Import &amp; enrol</button>
+            <span class="hint" id="importStatus"></span>
+          </div>
+        </div>
+      </section>
+
+      <!-- STAFF -->
+      <section class="tab-panel" id="apanel-staff">
+        <div class="card">
+          <div class="card-head"><h2>Lecturer &amp; Chairperson accounts</h2></div>
+          <div class="table-wrap"><table>
+            <thead><tr><th>Name</th><th>Role</th><th>Staff ID</th><th>Email</th><th>Department</th><th>Status</th><th></th></tr></thead>
+            <tbody id="staffTableBody"></tbody>
+          </table></div>
+          <div class="empty-state hidden" id="staffEmpty">No lecturer or chairperson accounts have registered yet.</div>
+        </div>
+      </section>
+
+      <!-- REPORTS -->
+      <section class="tab-panel" id="apanel-reports">
+        <div class="card select-row">
+          <div class="field"><label for="adminReportsSelect">Module offering</label><select id="adminReportsSelect"></select></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><h2>Attendance charts</h2><button class="btn btn-ghost btn-sm" id="adminDownloadPdfBtn">Download charts as PDF</button></div>
+          <div class="chart-grid">
+            <div class="chart-box"><canvas id="adminTrendChart"></canvas></div>
+            <div class="chart-box"><canvas id="adminDpChart"></canvas></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head">
+            <h2>Attendance summary</h2>
+            <div class="item-actions">
+              <button class="btn btn-ghost btn-sm" id="adminExportCsvBtn">Download CSV</button>
+              <button class="btn btn-ghost btn-sm" id="adminExportReportBtn">Export to Excel</button>
+            </div>
+          </div>
+          <div class="table-wrap"><table>
+            <thead><tr><th>Name</th><th>Reg Number</th><th>Attended</th><th>Total sessions</th><th>Rate</th><th>DP status</th></tr></thead>
+            <tbody id="adminReportsBody"></tbody>
+          </table></div>
+          <div class="empty-state hidden" id="adminReportsEmpty">Nothing to report yet.</div>
+        </div>
+      </section>
+
+      <!-- SETTINGS -->
+      <section class="tab-panel" id="apanel-settings">
+        <div class="card">
+          <div class="card-head"><h2>Academic calendar</h2></div>
+          <form id="settingsForm" class="form-grid">
+            <div class="field"><label for="s-year">Current academic year</label><input id="s-year" placeholder="e.g. 2026"></div>
+            <div class="field"><label for="s-semester">Current semester</label><select id="s-semester"><option>Semester 1</option><option>Semester 2</option></select></div>
+            <div class="field"><label for="s-qr">QR rotation (seconds)</label><input id="s-qr" type="number" min="10" max="120" value="30"></div>
+            <div class="field"><button class="btn btn-primary" type="submit">Save settings</button></div>
+          </form>
+        </div>
+      </section>
+    </div>
+  </section>
+
+    </main>
+  </div>
+</div>
+
+<div id="toast"><span class="dot"></span><span id="toastMsg"></span></div>
+
+<!-- QR scan / generate / chart / pdf libraries (classic globals, loaded before the module script) -->
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.5.0/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/3.0.4/jspdf.umd.min.js"></script>
+
+<script type="module">
+import { firebaseConfig } from './firebase-config.js';
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.17.1/firebase-app.js';
+import {
+  getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut,
+  onAuthStateChanged, sendPasswordResetEmail
+} from 'https://www.gstatic.com/firebasejs/12.17.1/firebase-auth.js';
+import {
+  getFirestore, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, addDoc,
+  collection, collectionGroup, query, where, orderBy, onSnapshot, serverTimestamp, Timestamp, increment
+} from 'https://www.gstatic.com/firebasejs/12.17.1/firebase-firestore.js';
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+/* ============ SMALL UTILITIES ============ */
+function toast(msg){
+  const el = document.getElementById('toast');
+  document.getElementById('toastMsg').textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => el.classList.remove('show'), 2800);
+}
+function escapeHtml(str){
+  return String(str == null ? '' : str)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+function toDocId(str){
+  return String(str || '').trim().replace(/\s+/g,'').replace(/[\/.#$\[\]]/g,'-').toUpperCase();
+}
+function randomToken(len){
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const arr = crypto.getRandomValues(new Uint32Array(len));
+  return Array.from(arr, n => chars[n % chars.length]).join('');
+}
+function exportTableToExcel(headers, rows, filename, sheetName){
+  const widths = headers.map((h, i) => {
+    let maxLen = String(h).length;
+    rows.forEach(r => { const v = String(r[i] == null ? '' : r[i]); if (v.length > maxLen) maxLen = v.length; });
+    return Math.max(140, Math.min(420, maxLen * 10 + 60));
+  });
+  const colgroup = widths.map(w => `<col style="width:${w}px">`).join('');
+  const theadRow = headers.map(h => `<th>${escapeHtml(h)}</th>`).join('');
+  const bodyRows = rows.map(r => `<tr>${r.map(c => `<td>${escapeHtml(c)}</td>`).join('')}</tr>`).join('');
+  const html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">' +
+    '<head><meta charset="UTF-8">' +
+    `<!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>${escapeHtml(sheetName)}</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]-->` +
+    '<style>table{border-collapse:collapse; font-family:Calibri,Arial,sans-serif;} td,th{border:1px solid #444; padding:12px 16px; font-size:14.5px; white-space:nowrap; height:30px; vertical-align:middle;} th{background:#0B4C8C; color:#fff; font-weight:bold; font-size:15.5px; text-align:left;} tr:nth-child(even) td{background:#F0F5FC;}</style>' +
+    `</head><body><table><colgroup>${colgroup}</colgroup><thead><tr>${theadRow}</tr></thead><tbody>${bodyRows}</tbody></table></body></html>`;
+  const blob = new Blob(['﻿', html], { type: 'application/vnd.ms-excel' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = filename;
+  document.body.appendChild(link); link.click(); document.body.removeChild(link);
+  setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+  toast('Exported ' + filename);
+}
+function exportRowsToCsv(headers, rows, filename){
+  const cell = (v) => {
+    const s = String(v == null ? '' : v);
+    return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  };
+  const lines = [headers.map(cell).join(','), ...rows.map(r => r.map(cell).join(','))];
+  const blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = filename;
+  document.body.appendChild(link); link.click(); document.body.removeChild(link);
+  setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+  toast('Downloaded ' + filename);
+}
+async function exportChartsToPdf(titleText, chartsStore, filename){
+  if (typeof window.jspdf === 'undefined'){ toast('PDF export could not load — check your connection.'); return; }
+  if (!chartsStore.trend && !chartsStore.dp){ toast('No charts to export yet — pick a module offering first.'); return; }
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
+  const pageWidth = pdf.internal.pageSize.getWidth();
+  const pageHeight = pdf.internal.pageSize.getHeight();
+  const margin = 40;
+  let y = margin;
+  pdf.setFontSize(15);
+  pdf.text(titleText, margin, y);
+  y += 20;
+  pdf.setFontSize(10);
+  pdf.setTextColor(120);
+  pdf.text('Generated ' + new Date().toLocaleString(), margin, y);
+  pdf.setTextColor(0);
+  y += 26;
+  const imgWidth = pageWidth - margin * 2;
+  [chartsStore.trend, chartsStore.dp].forEach((chart) => {
+    if (!chart) return;
+    const imgHeight = imgWidth * (chart.canvas.height / chart.canvas.width);
+    if (y + imgHeight > pageHeight - margin){ pdf.addPage(); y = margin; }
+    pdf.addImage(chart.toBase64Image(), 'PNG', margin, y, imgWidth, imgHeight);
+    y += imgHeight + 24;
+  });
+  pdf.save(filename);
+  toast('Downloaded ' + filename);
+}
+function parseCsv(text){
+  return text.split(/\r?\n/).map(l => l.trim()).filter(Boolean).map(l => l.split(',').map(c => c.trim()));
+}
+function authErrorMessage(e){
+  const code = (e && e.code) || '';
+  if (code.includes('email-already-in-use')) return 'That email is already registered — try signing in instead.';
+  if (code.includes('invalid-email')) return 'That email address looks invalid.';
+  if (code.includes('weak-password')) return 'Password should be at least 6 characters.';
+  if (code.includes('user-not-found') || code.includes('wrong-password') || code.includes('invalid-credential')) return 'Incorrect email or password.';
+  if (code.includes('too-many-requests')) return 'Too many attempts — please wait a moment and try again.';
+  return (e && e.message) ? e.message : 'Something went wrong — please try again.';
+}
+
+/* ============ THEME TOGGLE ============ */
+function applyTheme(theme){
+  document.documentElement.setAttribute('data-theme', theme);
+  document.getElementById('themeLabel').textContent = theme === 'dark' ? 'Light mode' : 'Dark mode';
+  try { localStorage.setItem('msuAttendanceTheme', theme); } catch(e){}
+}
+applyTheme(document.documentElement.getAttribute('data-theme') || 'light');
+document.getElementById('themeToggleBtn').addEventListener('click', () => {
+  const current = document.documentElement.getAttribute('data-theme') || 'light';
+  applyTheme(current === 'dark' ? 'light' : 'dark');
+});
+
+/* ============ TOP-LEVEL SCREEN SWITCH ============ */
+let currentScreen = 'role';
+function showScreen(name){
+  currentScreen = name;
+  document.getElementById('screen-role').classList.toggle('hidden', name !== 'role');
+  document.getElementById('screen-student').classList.toggle('hidden', name !== 'student');
+  document.getElementById('screen-lecturer').classList.toggle('hidden', name !== 'lecturer');
+  document.getElementById('screen-chairperson').classList.toggle('hidden', name !== 'chairperson');
+  document.getElementById('screen-admin').classList.toggle('hidden', name !== 'admin');
+  refreshActiveView();
+}
+
+/* ============ CATALOG (live sync — refreshes on its own the instant Admin adds or changes anything) ============ */
+let facultiesCache = [];
+let departmentsCache = [];
+let programmesCache = [];
+let modulesCache = [];
+let offeringsCache = [];
+let lecturersCache = [];
+let chairpersonsCache = [];
+let institutionConfig = { year: '', semester: 'Semester 1', qrRotationSeconds: 30 };
+
+const catalogLoaded = { faculties:false, departments:false, programmes:false, modules:false, offerings:false, lecturers:false, chairpersons:false, institution:false };
+let catalogReady = false;
+const catalogReadyWaiters = [];
+function waitForCatalog(){
+  if (catalogReady) return Promise.resolve();
+  return new Promise(resolve => catalogReadyWaiters.push(resolve));
+}
+function markCatalogPartLoaded(part){
+  catalogLoaded[part] = true;
+  if (!catalogReady && Object.values(catalogLoaded).every(Boolean)){
+    catalogReady = true;
+    catalogReadyWaiters.splice(0).forEach(fn => fn());
+  }
+}
+
+let refreshViewTimer = null;
+function scheduleRefreshActiveView(){
+  clearTimeout(refreshViewTimer);
+  refreshViewTimer = setTimeout(refreshActiveView, 120);
+}
+
+function startCatalogSync(){
+  onSnapshot(collection(db, 'faculties'), snap => {
+    facultiesCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    markCatalogPartLoaded('faculties'); scheduleRefreshActiveView();
+  }, err => { console.error('faculties sync failed', err); markCatalogPartLoaded('faculties'); });
+
+  onSnapshot(collection(db, 'departments'), snap => {
+    departmentsCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    markCatalogPartLoaded('departments'); scheduleRefreshActiveView();
+  }, err => { console.error('departments sync failed', err); markCatalogPartLoaded('departments'); });
+
+  onSnapshot(collection(db, 'programmes'), snap => {
+    programmesCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    markCatalogPartLoaded('programmes'); scheduleRefreshActiveView();
+  }, err => { console.error('programmes sync failed', err); markCatalogPartLoaded('programmes'); });
+
+  onSnapshot(collection(db, 'modules'), snap => {
+    modulesCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    markCatalogPartLoaded('modules'); scheduleRefreshActiveView();
+  }, err => { console.error('modules sync failed', err); markCatalogPartLoaded('modules'); });
+
+  onSnapshot(collection(db, 'moduleOfferings'), snap => {
+    offeringsCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    markCatalogPartLoaded('offerings'); scheduleRefreshActiveView();
+  }, err => { console.error('offerings sync failed', err); markCatalogPartLoaded('offerings'); });
+
+  onSnapshot(collection(db, 'lecturers'), snap => {
+    lecturersCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    markCatalogPartLoaded('lecturers'); scheduleRefreshActiveView();
+  }, err => { console.error('lecturers sync failed', err); markCatalogPartLoaded('lecturers'); });
+
+  onSnapshot(collection(db, 'chairpersons'), snap => {
+    chairpersonsCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    markCatalogPartLoaded('chairpersons'); scheduleRefreshActiveView();
+  }, err => { console.error('chairpersons sync failed', err); markCatalogPartLoaded('chairpersons'); });
+
+  onSnapshot(doc(db, 'institution', 'settings'), snapDoc => {
+    if (snapDoc.exists()) institutionConfig = { year:'', semester:'Semester 1', qrRotationSeconds:30, ...snapDoc.data() };
+    markCatalogPartLoaded('institution'); scheduleRefreshActiveView();
+  }, err => { console.error('institution sync failed', err); markCatalogPartLoaded('institution'); });
+}
+
+/* ---- lookups ---- */
+function facultyById(id){ return facultiesCache.find(f => f.id === id); }
+function departmentById(id){ return departmentsCache.find(d => d.id === id); }
+function programmeById(id){ return programmesCache.find(p => p.id === id); }
+function moduleById(id){ return modulesCache.find(m => m.id === id); }
+function offeringById(id){ return offeringsCache.find(o => o.id === id); }
+function departmentName(id){ const d = departmentById(id); return d ? d.name : '—'; }
+function facultyOfDepartment(departmentId){ const d = departmentById(departmentId); return d ? facultyById(d.facultyId) : null; }
+function resolveDpThreshold(moduleId, departmentId){
+  const mod = moduleById(moduleId);
+  if (mod && mod.dpOverride !== null && mod.dpOverride !== undefined && mod.dpOverride !== '') return Number(mod.dpOverride);
+  const fac = facultyOfDepartment(departmentId);
+  return (fac && fac.dpThreshold !== null && fac.dpThreshold !== undefined) ? Number(fac.dpThreshold) : 75;
+}
+function offeringLabel(o){
+  if (!o) return '';
+  const mod = moduleById(o.moduleId);
+  const code = (mod && mod.code) || o.moduleCode || '?';
+  const name = (mod && mod.name) || o.moduleName || '';
+  return `${code} — ${name} / ${o.semester || ''} ${o.year || ''} · ${o.campus || ''} · ${o.day || ''} ${o.start || ''}–${o.end || ''}`;
+}
+
+/* ---- generic dropdown fillers, used anywhere a <select> needs the live catalogue ---- */
+function fillSelect(id, pairs, placeholder){
+  const el = document.getElementById(id);
+  if (!el) return;
+  const prev = el.value;
+  el.innerHTML = (placeholder ? `<option value="">${escapeHtml(placeholder)}</option>` : '') +
+    pairs.map(([v, label]) => `<option value="${escapeHtml(v)}">${escapeHtml(label)}</option>`).join('');
+  if (pairs.some(([v]) => v === prev)) el.value = prev;
+}
+function fillMultiSelect(id, pairs){
+  const el = document.getElementById(id);
+  if (!el) return;
+  const prevSelected = new Set(Array.from(el.selectedOptions || []).map(o => o.value));
+  el.innerHTML = pairs.map(([v, label]) => `<option value="${escapeHtml(v)}">${escapeHtml(label)}</option>`).join('');
+  Array.from(el.options).forEach(o => { if (prevSelected.has(o.value)) o.selected = true; });
+}
+function populateStaticDropdowns(){
+  fillSelect('d-faculty', facultiesCache.map(f => [f.id, f.name]), 'Select a faculty');
+  fillSelect('p-department', departmentsCache.map(d => [d.id, d.name]), 'Select a department');
+  fillSelect('mo-department', departmentsCache.map(d => [d.id, d.name]), 'Select a department');
+  fillSelect('of-module', modulesCache.map(m => [m.id, `${m.code} — ${m.name}`]), 'Select a module');
+  fillMultiSelect('of-lecturers', lecturersCache.filter(l => l.status === 'approved').map(l => [l.id, l.name || l.email]));
+  fillMultiSelect('of-programmes', programmesCache.map(p => [p.id, p.name]));
+  fillSelect('importOfferingSelect', offeringsCache.map(o => [o.id, offeringLabel(o)]), 'Select a module offering');
+  fillSelect('lec-r-dept', departmentsCache.map(d => [d.id, d.name]), 'Select a department');
+  fillSelect('cp-r-dept', departmentsCache.map(d => [d.id, d.name]), 'Select a department');
+}
+
+/* ---- the single dispatcher every catalogue change (and every screen switch) funnels through ---- */
+function refreshActiveView(){
+  populateStaticDropdowns();
+  if (currentScreen === 'admin' && typeof renderAdminActiveTab === 'function') renderAdminActiveTab();
+  if (currentScreen === 'lecturer' && typeof renderLecturerActiveTab === 'function') renderLecturerActiveTab();
+  if (currentScreen === 'chairperson' && typeof renderChairpersonActiveTab === 'function') renderChairpersonActiveTab();
+  if (currentScreen === 'student' && typeof renderStudentDashboard === 'function') renderStudentDashboard();
+}
+
+/* ---- generic tab-group wiring, shared by the Lecturer / Chairperson / Admin dashboards ---- */
+function wireTabGroup(buttonSelector, dataAttr, panelIdPrefix, onShow){
+  const buttons = Array.from(document.querySelectorAll(buttonSelector));
+  buttons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const key = btn.getAttribute(dataAttr);
+      buttons.forEach(b => {
+        const isActive = b === btn;
+        b.classList.toggle('active', isActive);
+        const panel = document.getElementById(panelIdPrefix + b.getAttribute(dataAttr));
+        if (panel) panel.classList.toggle('active', isActive);
+      });
+      if (onShow) onShow(key);
+    });
+  });
+}
+
+/* ============ ROLE BUTTONS ============ */
+document.getElementById('pickStudentBtn').addEventListener('click', async () => {
+  showScreen('student');
+  await initStudentFlow();
+});
+document.getElementById('pickLecturerBtn').addEventListener('click', async () => {
+  showScreen('lecturer');
+  await initLecturerFlow();
+});
+document.getElementById('pickChairpersonBtn').addEventListener('click', async () => {
+  showScreen('chairperson');
+  await initChairpersonFlow();
+});
+document.getElementById('pickAdminBtn').addEventListener('click', async () => {
+  if (auth.currentUser){ try { await signOut(auth); } catch(e){} }
+  document.getElementById('adminDashboard').classList.add('hidden');
+  document.getElementById('adminLoginWrap').classList.remove('hidden');
+  document.getElementById('a-email').value = '';
+  document.getElementById('a-pass').value = '';
+  showScreen('admin');
+});
+
+/* ============ STUDENT ============ */
+let studentProfile = null;
+let studentScanStream = null;
+let studentScanRaf = null;
+
+async function initStudentFlow(){
+  if (auth.currentUser){
+    try {
+      const snap = await getDoc(doc(db, 'students', auth.currentUser.uid));
+      if (snap.exists()){
+        studentProfile = { uid: auth.currentUser.uid, ...snap.data() };
+        await renderStudentDashboard();
+        return;
+      }
+    } catch(e){ console.error(e); }
+    try { await signOut(auth); } catch(e){}
+  }
+  studentProfile = null;
+  renderStudentAuthForm();
+}
+
+function renderStudentAuthForm(){
+  const el = document.getElementById('studentContent');
+  el.innerHTML = `
+    <div class="card login-box">
+      <nav class="tabs" role="tablist" style="margin-bottom:18px;">
+        <button class="tab-btn active" id="stuAuthTabLogin">Sign in</button>
+        <button class="tab-btn" id="stuAuthTabRegister">Register</button>
+      </nav>
+      <form id="stuLoginForm" class="field" style="gap:12px;">
+        <div class="field"><label for="stu-l-email">Email</label><input id="stu-l-email" type="email" required></div>
+        <div class="field"><label for="stu-l-pass">Password</label><input id="stu-l-pass" type="password" required></div>
+        <button class="btn btn-primary btn-block" type="submit">Sign in</button>
+        <p class="hint"><a href="#" id="stuForgotLink">Forgot password?</a></p>
+      </form>
+      <form id="stuRegisterForm" class="field hidden" style="gap:12px;">
+        <div class="field"><label for="stu-r-reg">Reg number</label><input id="stu-r-reg" class="mono-input" required placeholder="e.g. R123456X"></div>
+        <p class="hint" style="margin:-4px 0 2px;">Your Reg Number must already be on a class list a Lecturer or Admin has imported.</p>
+        <div class="field"><label for="stu-r-name">Full name</label><input id="stu-r-name" required></div>
+        <div class="field"><label for="stu-r-email">Email</label><input id="stu-r-email" type="email" required></div>
+        <div class="field"><label for="stu-r-pass">Password</label><input id="stu-r-pass" type="password" minlength="6" required></div>
+        <button class="btn btn-primary btn-block" type="submit">Create account</button>
+      </form>
+    </div>`;
+
+  const showLogin = () => {
+    document.getElementById('stuAuthTabLogin').classList.add('active');
+    document.getElementById('stuAuthTabRegister').classList.remove('active');
+    document.getElementById('stuLoginForm').classList.remove('hidden');
+    document.getElementById('stuRegisterForm').classList.add('hidden');
+  };
+  const showRegister = () => {
+    document.getElementById('stuAuthTabLogin').classList.remove('active');
+    document.getElementById('stuAuthTabRegister').classList.add('active');
+    document.getElementById('stuLoginForm').classList.add('hidden');
+    document.getElementById('stuRegisterForm').classList.remove('hidden');
+  };
+  document.getElementById('stuAuthTabLogin').addEventListener('click', showLogin);
+  document.getElementById('stuAuthTabRegister').addEventListener('click', showRegister);
+
+  document.getElementById('stuLoginForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email = document.getElementById('stu-l-email').value.trim();
+    const pass = document.getElementById('stu-l-pass').value;
+    try {
+      const cred = await signInWithEmailAndPassword(auth, email, pass);
+      const snap = await getDoc(doc(db, 'students', cred.user.uid));
+      if (!snap.exists()){
+        await signOut(auth);
+        toast('This account is not set up as a Student.');
+        return;
+      }
+      studentProfile = { uid: cred.user.uid, ...snap.data() };
+      await renderStudentDashboard();
+    } catch(err){ toast(authErrorMessage(err)); }
+  });
+  document.getElementById('stuForgotLink').addEventListener('click', async (e) => {
+    e.preventDefault();
+    const email = document.getElementById('stu-l-email').value.trim();
+    if (!email){ toast('Enter your email above first.'); return; }
+    try { await sendPasswordResetEmail(auth, email); toast('Password reset email sent.'); }
+    catch(err){ toast(authErrorMessage(err)); }
+  });
+
+  document.getElementById('stuRegisterForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const regNumberRaw = document.getElementById('stu-r-reg').value.trim();
+    const regId = toDocId(regNumberRaw);
+    const name = document.getElementById('stu-r-name').value.trim();
+    const email = document.getElementById('stu-r-email').value.trim();
+    const pass = document.getElementById('stu-r-pass').value;
+    if (!regId){ toast('Enter your Reg Number.'); return; }
+    try {
+      const regSnap = await getDoc(doc(db, 'studentsRegistry', regId));
+      if (!regSnap.exists()){
+        toast('That Reg Number was not found — ask your Lecturer or Admin to import your class list first.');
+        return;
+      }
+      if (regSnap.data().claimed === true){
+        toast('An account already exists for that Reg Number — try signing in instead.');
+        return;
+      }
+      const cred = await createUserWithEmailAndPassword(auth, email, pass);
+      const programmeId = regSnap.data().programmeId || '';
+      await setDoc(doc(db, 'students', cred.user.uid), {
+        regNumber: regSnap.data().regNumber || regNumberRaw, name, email, programmeId, createdAt: serverTimestamp()
+      });
+      await updateDoc(doc(db, 'studentsRegistry', regId), { claimed: true });
+      studentProfile = { uid: cred.user.uid, regNumber: regSnap.data().regNumber || regNumberRaw, name, email, programmeId };
+      toast('Account created.');
+      await renderStudentDashboard();
+    } catch(err){ toast(authErrorMessage(err)); }
+  });
+}
+
+async function renderStudentDashboard(){
+  if (!studentProfile) return;
+  const el = document.getElementById('studentContent');
+  if (!el) return;
+  el.innerHTML = `
+    <div class="welcome-row">
+      <div><h2 style="font-size:19px;">Hi, ${escapeHtml(studentProfile.name)}</h2>
+        <p class="hint" style="margin-top:3px;">Reg Number <span class="mono">${escapeHtml(studentProfile.regNumber)}</span></p></div>
+      <button class="btn btn-ghost btn-sm" id="stuSignOutBtn">Sign out</button>
+    </div>
+
+    <button class="btn btn-primary btn-scan" id="stuScanBtn">Scan QR to check in</button>
+    <div class="card hidden" id="stuScanCard"></div>
+
+    <div class="card">
+      <div class="card-head"><h2>My modules</h2></div>
+      <div id="stuModulesList"></div>
+      <div class="empty-state hidden" id="stuModulesEmpty">You're not enrolled in any modules yet — ask your Lecturer to add you to a class list.</div>
+    </div>`;
+
+  document.getElementById('stuSignOutBtn').addEventListener('click', async () => {
+    stopStudentScan();
+    await signOut(auth);
+    studentProfile = null;
+    renderStudentAuthForm();
+  });
+  document.getElementById('stuScanBtn').addEventListener('click', () => startStudentScan());
+
+  await loadStudentModules();
+}
+
+async function loadStudentModules(){
+  const listEl = document.getElementById('stuModulesList');
+  const emptyEl = document.getElementById('stuModulesEmpty');
+  if (!listEl) return;
+  try {
+    const enrollQ = query(collectionGroup(db, 'enrollments'), where('regNumber', '==', studentProfile.regNumber));
+    const attQ = query(collectionGroup(db, 'attendance'), where('regNumber', '==', studentProfile.regNumber));
+    const [enrollSnap, attSnap] = await Promise.all([getDocs(enrollQ), getDocs(attQ)]);
+
+    const attendedByOffering = {};
+    attSnap.docs.forEach(a => {
+      const offeringId = a.ref.parent.parent.parent.parent.id;
+      attendedByOffering[offeringId] = (attendedByOffering[offeringId] || 0) + 1;
+    });
+
+    const rows = enrollSnap.docs
+      .filter(e => e.data().status === 'active')
+      .map(e => {
+        const offeringId = e.ref.parent.parent.id;
+        const offering = offeringById(offeringId);
+        const total = offering ? Number(offering.sessionsHeld || 0) : 0;
+        const attended = attendedByOffering[offeringId] || 0;
+        const rate = total ? Math.round((attended / total) * 100) : 0;
+        const dpThreshold = offering ? Number(offering.dpThreshold || 75) : 75;
+        const dpOk = total === 0 ? true : rate >= dpThreshold;
+        return { offeringId, offering, attended, total, rate, dpOk };
+      });
+
+    if (!rows.length){
+      listEl.innerHTML = '';
+      emptyEl.classList.remove('hidden');
+      return;
+    }
+    emptyEl.classList.add('hidden');
+    listEl.innerHTML = rows.map(r => `
+      <div class="item-row">
+        <div><div class="title">${escapeHtml(r.offering ? offeringLabel(r.offering) : 'Module offering')}</div>
+          <div class="meta">Attended ${r.attended} of ${r.total} session${r.total === 1 ? '' : 's'} · ${r.rate}%</div></div>
+        <span class="badge ${r.dpOk ? 'approved' : 'absent'}">${r.dpOk ? 'DP eligible' : 'At risk'}</span>
+      </div>`).join('');
+  } catch(e){
+    console.error('could not load student modules', e);
+    toast('Could not load your modules.');
+  }
+}
+
+function startStudentScan(){
+  const card = document.getElementById('stuScanCard');
+  card.classList.remove('hidden');
+  card.innerHTML = `
+    <div class="scan-card">
+      <div class="scan-video-wrap"><video id="stuScanVideo" playsinline muted></video><div class="scan-reticle"></div></div>
+      <p class="hint" style="margin-top:12px;">Point your camera at the QR code on the lecturer's screen.</p>
+      <button class="btn btn-ghost btn-sm" id="stuScanCancelBtn">Cancel</button>
+    </div>`;
+  document.getElementById('stuScanCancelBtn').addEventListener('click', stopStudentScan);
+
+  const video = document.getElementById('stuScanVideo');
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+
+  navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } }).then(stream => {
+    studentScanStream = stream;
+    video.srcObject = stream;
+    video.setAttribute('playsinline', true);
+    video.play();
+    const tick = () => {
+      if (!studentScanStream) return;
+      if (video.readyState === video.HAVE_ENOUGH_DATA){
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const code = window.jsQR(imageData.data, imageData.width, imageData.height);
+        if (code && code.data){
+          handleScannedPayload(code.data);
+          return;
+        }
+      }
+      studentScanRaf = requestAnimationFrame(tick);
+    };
+    studentScanRaf = requestAnimationFrame(tick);
+  }).catch(err => {
+    console.error(err);
+    toast('Could not access your camera — check camera permissions and that you are on HTTPS.');
+    stopStudentScan();
+  });
+}
+
+function stopStudentScan(){
+  if (studentScanRaf) cancelAnimationFrame(studentScanRaf);
+  studentScanRaf = null;
+  if (studentScanStream){ studentScanStream.getTracks().forEach(t => t.stop()); }
+  studentScanStream = null;
+  const card = document.getElementById('stuScanCard');
+  if (card){ card.classList.add('hidden'); card.innerHTML = ''; }
+}
+
+async function handleScannedPayload(payload){
+  stopStudentScan();
+  const parts = String(payload).split('|');
+  if (parts.length !== 4 || parts[0] !== 'MSUATT'){
+    renderScanResult(false, 'That QR code is not a valid MSU Attendance check-in code.');
+    return;
+  }
+  const [, offeringId, sessionId, token] = parts;
+  try {
+    const regId = toDocId(studentProfile.regNumber);
+    await setDoc(doc(db, 'moduleOfferings', offeringId, 'sessions', sessionId, 'attendance', regId), {
+      regNumber: studentProfile.regNumber,
+      name: studentProfile.name,
+      status: 'present',
+      tokenUsed: token,
+      scannedAt: serverTimestamp()
+    });
+    renderScanResult(true, 'You are marked present.');
+    loadStudentModules();
+  } catch(err){
+    console.error(err);
+    renderScanResult(false, 'Check-in failed — the code may have expired. Ask the lecturer for the current code and try again.');
+  }
+}
+
+function renderScanResult(ok, message){
+  const card = document.getElementById('stuScanCard');
+  card.classList.remove('hidden');
+  card.innerHTML = `
+    <div class="result-panel ${ok ? 'result-ok' : 'result-fail'}">
+      <h2>${ok ? 'Checked in' : 'Could not check in'}</h2>
+      <p class="hint">${escapeHtml(message)}</p>
+      <div class="result-actions">
+        ${!ok ? '<button class="btn btn-primary btn-sm" id="stuScanRetryBtn">Try again</button>' : ''}
+        <button class="btn btn-ghost btn-sm" id="stuScanCloseBtn">Close</button>
+      </div>
+    </div>`;
+  if (!ok) document.getElementById('stuScanRetryBtn').addEventListener('click', () => startStudentScan());
+  document.getElementById('stuScanCloseBtn').addEventListener('click', () => {
+    card.classList.add('hidden'); card.innerHTML = '';
+  });
+}
+
+document.getElementById('studentBackBtn').addEventListener('click', () => {
+  stopStudentScan();
+  showScreen('role');
+});
+
+/* ============ SHARED: CSV import & enrol (used by Admin's Import tab AND the offering manager below) ============ */
+async function importCsvToOffering(offeringId, rows){
+  let count = 0, errors = 0;
+  for (const row of rows){
+    const regNumberRaw = (row[0] || '').trim();
+    if (!regNumberRaw) continue;
+    const name = (row[1] || '').trim();
+    const programmeName = (row[2] || '').trim();
+    const regId = toDocId(regNumberRaw);
+    try {
+      const programme = programmesCache.find(p => (p.name || '').toLowerCase() === programmeName.toLowerCase());
+      const regRef = doc(db, 'studentsRegistry', regId);
+      const existing = await getDoc(regRef);
+      if (existing.exists()){
+        await updateDoc(regRef, {
+          name: name || existing.data().name || '',
+          programmeId: programme ? programme.id : (existing.data().programmeId || '')
+        });
+      } else {
+        await setDoc(regRef, { regNumber: regNumberRaw, name, programmeId: programme ? programme.id : '', claimed: false });
+      }
+      await setDoc(doc(db, 'moduleOfferings', offeringId, 'enrollments', regId), {
+        regNumber: regNumberRaw, name, programmeId: programme ? programme.id : '', status: 'active'
+      }, { merge: true });
+      count++;
+    } catch(e){ console.error('import row failed', regNumberRaw, e); errors++; }
+  }
+  return { count, errors };
+}
+
+/* ============ SHARED: per-offering report data + charts (used by Lecturer / Chairperson / Admin Reports tabs) ============ */
+async function loadOfferingReportData(offeringId){
+  const sessSnap = await getDocs(query(collection(db, 'moduleOfferings', offeringId, 'sessions'), orderBy('createdAt', 'asc')));
+  const sessions = sessSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+  const perSessionCounts = [];
+  const attendedByReg = {};
+  for (const s of sessions){
+    const attSnap = await getDocs(collection(db, 'moduleOfferings', offeringId, 'sessions', s.id, 'attendance'));
+    perSessionCounts.push({ session: s, count: attSnap.size });
+    attSnap.docs.forEach(a => { attendedByReg[a.id] = (attendedByReg[a.id] || 0) + 1; });
+  }
+  const enrollSnap = await getDocs(collection(db, 'moduleOfferings', offeringId, 'enrollments'));
+  const roster = enrollSnap.docs.filter(d => d.data().status === 'active').map(d => ({ regId: d.id, ...d.data() }));
+  const offering = offeringById(offeringId) || {};
+  const dpThreshold = offering.dpThreshold !== null && offering.dpThreshold !== undefined ? Number(offering.dpThreshold) : 75;
+  const totalSessions = sessions.length;
+  const rows = roster.map(r => {
+    const attended = attendedByReg[r.regId] || 0;
+    const rate = totalSessions ? Math.round((attended / totalSessions) * 100) : 0;
+    const dpOk = totalSessions === 0 ? true : rate >= dpThreshold;
+    return { name: r.name, regNumber: r.regNumber, attended, totalSessions, rate, dpOk };
+  });
+  return { sessions, perSessionCounts, rows, dpThreshold, totalSessions };
+}
+
+function renderReportCharts(chartsStore, trendCanvasId, dpCanvasId, perSessionCounts, rows){
+  const trendCanvas = document.getElementById(trendCanvasId);
+  const dpCanvas = document.getElementById(dpCanvasId);
+  if (!trendCanvas || !dpCanvas) return;
+  if (chartsStore.trend){ chartsStore.trend.destroy(); chartsStore.trend = null; }
+  if (chartsStore.dp){ chartsStore.dp.destroy(); chartsStore.dp = null; }
+  const labels = perSessionCounts.map((p, i) => 'S' + (i + 1));
+  chartsStore.trend = new Chart(trendCanvas, {
+    type: 'bar',
+    data: { labels, datasets: [{ label: 'Students present', data: perSessionCounts.map(p => p.count), backgroundColor: '#0b4c8c' }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { title: { display: true, text: 'Attendance per session' }, legend: { display: false } },
+      scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+    }
+  });
+  const eligible = rows.filter(r => r.dpOk).length;
+  const atRisk = rows.length - eligible;
+  chartsStore.dp = new Chart(dpCanvas, {
+    type: 'bar',
+    data: { labels: ['Eligible (DP)', 'At risk'], datasets: [{ label: 'Students', data: [eligible, atRisk], backgroundColor: ['#12946a', '#d5323f'] }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { title: { display: true, text: 'DP status summary' }, legend: { display: false } },
+      scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+    }
+  });
+}
+
+function createReportsController(opts){
+  // opts: { prefix: 'lecturer' | 'chairperson' | 'admin', getOfferings: () => offering[] scoped to this role }
+  const state = { chartsStore: {}, currentRows: [], currentOfferingLabel: '' };
+  const selectEl = () => document.getElementById(opts.prefix + 'ReportsSelect');
+  const tbody = () => document.getElementById(opts.prefix + 'ReportsBody');
+  const emptyEl = () => document.getElementById(opts.prefix + 'ReportsEmpty');
+
+  function clearView(){
+    if (tbody()) tbody().innerHTML = '';
+    if (emptyEl()) emptyEl().classList.remove('hidden');
+    if (state.chartsStore.trend){ state.chartsStore.trend.destroy(); state.chartsStore.trend = null; }
+    if (state.chartsStore.dp){ state.chartsStore.dp.destroy(); state.chartsStore.dp = null; }
+    state.currentRows = [];
+  }
+
+  async function loadAndRender(){
+    const el = selectEl();
+    if (!el || !el.value){ clearView(); return; }
+    const offeringId = el.value;
+    try {
+      const data = await loadOfferingReportData(offeringId);
+      state.currentRows = data.rows;
+      state.currentOfferingLabel = offeringLabel(offeringById(offeringId));
+      renderReportCharts(state.chartsStore, opts.prefix + 'TrendChart', opts.prefix + 'DpChart', data.perSessionCounts, data.rows);
+      const body = tbody();
+      if (!data.rows.length){
+        body.innerHTML = '';
+        emptyEl().classList.remove('hidden');
+      } else {
+        emptyEl().classList.add('hidden');
+        body.innerHTML = data.rows.map(r => `<tr>
+          <td>${escapeHtml(r.name)}</td><td class="mono">${escapeHtml(r.regNumber)}</td>
+          <td>${r.attended}</td><td>${r.totalSessions}</td><td>${r.rate}%</td>
+          <td><span class="badge ${r.dpOk ? 'approved' : 'absent'}">${r.dpOk ? 'Eligible' : 'At risk'}</span></td>
+        </tr>`).join('');
+      }
+    } catch(e){ console.error('report load failed', e); toast('Could not load that report.'); }
+  }
+
+  async function populateSelect(){
+    const offerings = opts.getOfferings();
+    const el = selectEl();
+    if (!el) return;
+    const prev = el.value;
+    el.innerHTML = offerings.length
+      ? offerings.map(o => `<option value="${escapeHtml(o.id)}">${escapeHtml(offeringLabel(o))}</option>`).join('')
+      : `<option value="">No module offerings</option>`;
+    if (offerings.some(o => o.id === prev)) el.value = prev;
+    await loadAndRender();
+  }
+
+  if (selectEl()) selectEl().addEventListener('change', loadAndRender);
+  const pdfBtn = document.getElementById(opts.prefix + 'DownloadPdfBtn');
+  if (pdfBtn) pdfBtn.addEventListener('click', () =>
+    exportChartsToPdf(state.currentOfferingLabel || 'Attendance report', state.chartsStore, opts.prefix + '-attendance-charts.pdf'));
+  const csvBtn = document.getElementById(opts.prefix + 'ExportCsvBtn');
+  if (csvBtn) csvBtn.addEventListener('click', () => {
+    if (!state.currentRows.length){ toast('Nothing to export yet.'); return; }
+    exportRowsToCsv(['Name', 'Reg Number', 'Attended', 'Total sessions', 'Rate', 'DP status'],
+      state.currentRows.map(r => [r.name, r.regNumber, r.attended, r.totalSessions, r.rate + '%', r.dpOk ? 'Eligible' : 'At risk']),
+      opts.prefix + '-attendance-report.csv');
+  });
+  const xlsBtn = document.getElementById(opts.prefix + 'ExportReportBtn');
+  if (xlsBtn) xlsBtn.addEventListener('click', () => {
+    if (!state.currentRows.length){ toast('Nothing to export yet.'); return; }
+    exportTableToExcel(['Name', 'Reg Number', 'Attended', 'Total sessions', 'Rate', 'DP status'],
+      state.currentRows.map(r => [r.name, r.regNumber, r.attended, r.totalSessions, r.rate + '%', r.dpOk ? 'Eligible' : 'At risk']),
+      opts.prefix + '-attendance-report.xls', 'Attendance');
+  });
+
+  return { populateSelect, refresh: loadAndRender };
+}
+
+/* ============ SHARED: offering manager — CSV import, sessions, rotating QR, live + manual roster ============ */
+/* Used identically by the Lecturer ("My modules") and Chairperson ("Department modules") manage panels. */
+function createOfferingManager(containerEl, offering, opts){
+  let activeSession = null;
+  let rotationTimer = null;
+  let qrInstance = null;
+  let attendanceUnsub = null;
+  let enrollUnsub = null;
+  let roster = [];
+  let presentRegIds = new Set();
+
+  function render(){
+    containerEl.classList.remove('hidden');
+    containerEl.innerHTML = `
+      <div class="card-head"><h2>Manage — ${escapeHtml(offeringLabel(offering))}</h2>
+        <button class="btn btn-ghost btn-sm" data-om="close">Close</button></div>
+
+      <div class="subcard">
+        <div class="card-head"><h2 style="font-size:15px;">Check-in session</h2>
+          <div class="item-actions">
+            <button class="btn btn-primary btn-sm" data-om="start">Start new session</button>
+            <button class="btn btn-danger-ghost btn-sm hidden" data-om="stop">Close check-in</button>
+          </div>
+        </div>
+        <div id="omSessionArea"><p class="hint">No open check-in session right now — click "Start new session" to generate a QR code.</p></div>
+      </div>
+
+      <div class="subcard">
+        <div class="card-head"><h2 style="font-size:15px;">Import class list</h2><span class="hint">CSV columns: Reg Number, Name, Programme</span></div>
+        <div class="field"><input type="file" id="omImportFile" accept=".csv,text/csv"></div>
+        <div class="field" style="margin-top:10px;"><textarea id="omImportText" rows="4" placeholder="R123456X, Tanaka Moyo, BCom Marketing Honours"></textarea></div>
+        <div style="display:flex; align-items:center; gap:14px; margin-top:10px;">
+          <button class="btn btn-primary btn-sm" data-om="import" type="button">Import &amp; enrol</button>
+          <span class="hint" id="omImportStatus"></span>
+        </div>
+      </div>
+
+      <div class="subcard">
+        <div class="card-head"><h2 style="font-size:15px;">Class list</h2><span class="hint" id="omRosterCount"></span></div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Name</th><th>Reg Number</th><th>Programme</th><th>Today</th></tr></thead>
+          <tbody id="omRosterBody"></tbody>
+        </table></div>
+        <div class="empty-state hidden" id="omRosterEmpty">No students enrolled yet — import a class list above.</div>
+      </div>`;
+    containerEl.addEventListener('click', onClick);
+    document.getElementById('omImportFile').addEventListener('change', onImportFileChange);
+  }
+
+  async function onClick(e){
+    const btn = e.target.closest('[data-om]');
+    if (!btn) return;
+    const act = btn.getAttribute('data-om');
+    if (act === 'close'){ teardown(); containerEl.classList.add('hidden'); containerEl.innerHTML = ''; return; }
+    if (act === 'start'){ await startSession(); return; }
+    if (act === 'stop'){ await stopSession(); return; }
+    if (act === 'import'){ await doImport(); return; }
+    if (act === 'mark'){
+      const regId = btn.getAttribute('data-reg');
+      const present = btn.getAttribute('data-present') === '1';
+      await toggleAttendance(regId, present);
+    }
+  }
+
+  function onImportFileChange(e){
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => { document.getElementById('omImportText').value = String(reader.result || ''); };
+    reader.readAsText(file);
+  }
+
+  async function doImport(){
+    const text = document.getElementById('omImportText').value;
+    const rows = parseCsv(text);
+    if (!rows.length){ toast('Paste or upload some rows first.'); return; }
+    const statusEl = document.getElementById('omImportStatus');
+    statusEl.textContent = 'Importing…';
+    const { count, errors } = await importCsvToOffering(offering.id, rows);
+    statusEl.textContent = `Imported ${count} student${count === 1 ? '' : 's'}${errors ? `, ${errors} row(s) failed` : ''}.`;
+    document.getElementById('omImportText').value = '';
+    document.getElementById('omImportFile').value = '';
+    toast(`Imported ${count} student${count === 1 ? '' : 's'}.`);
+  }
+
+  function subscribeEnrollments(){
+    enrollUnsub = onSnapshot(collection(db, 'moduleOfferings', offering.id, 'enrollments'), snap => {
+      roster = snap.docs.filter(d => d.data().status === 'active').map(d => ({ regId: d.id, ...d.data() }));
+      renderRoster();
+    }, err => console.error('roster sync failed', err));
+  }
+
+  function renderRoster(){
+    const body = document.getElementById('omRosterBody');
+    const empty = document.getElementById('omRosterEmpty');
+    const countEl = document.getElementById('omRosterCount');
+    if (!body) return;
+    countEl.textContent = roster.length ? `${roster.length} enrolled` : '';
+    if (!roster.length){ body.innerHTML = ''; empty.classList.remove('hidden'); return; }
+    empty.classList.add('hidden');
+    body.innerHTML = roster.map(r => {
+      const present = presentRegIds.has(r.regId);
+      const todayCell = activeSession
+        ? `<button class="status-toggle ${present ? 'present' : 'absent'}" data-om="mark" data-reg="${escapeHtml(r.regId)}" data-present="${present ? '0' : '1'}">${present ? 'Present' : 'Mark present'}</button>`
+        : '<span class="hint">—</span>';
+      return `<tr><td>${escapeHtml(r.name)}</td><td class="mono">${escapeHtml(r.regNumber)}</td><td>${escapeHtml(programmeById(r.programmeId) ? programmeById(r.programmeId).name : '')}</td><td>${todayCell}</td></tr>`;
+    }).join('');
+  }
+
+  async function toggleAttendance(regId, present){
+    try {
+      const ref = doc(db, 'moduleOfferings', offering.id, 'sessions', activeSession.id, 'attendance', regId);
+      if (present){
+        const r = roster.find(x => x.regId === regId);
+        await setDoc(ref, { regNumber: r ? r.regNumber : regId, name: r ? r.name : '', status: 'present', tokenUsed: 'manual', scannedAt: serverTimestamp() });
+      } else {
+        await deleteDoc(ref);
+      }
+    } catch(e){ console.error(e); toast('Could not update attendance.'); }
+  }
+
+  async function startSession(){
+    try {
+      const seconds = Number(institutionConfig.qrRotationSeconds) || 30;
+      const ref = await addDoc(collection(db, 'moduleOfferings', offering.id, 'sessions'), {
+        status: 'open',
+        activeToken: randomToken(8),
+        tokenExpiresAt: Timestamp.fromMillis(Date.now() + seconds * 1000),
+        createdAt: serverTimestamp(),
+        openedBy: opts.uid
+      });
+      await updateDoc(doc(db, 'moduleOfferings', offering.id), { sessionsHeld: increment(1) });
+      activeSession = { id: ref.id };
+      mountSessionArea(seconds);
+      toast('Check-in session started.');
+    } catch(e){ console.error(e); toast('Could not start a session.'); }
+  }
+
+  function mountSessionArea(seconds){
+    containerEl.querySelector('[data-om="start"]').classList.add('hidden');
+    containerEl.querySelector('[data-om="stop"]').classList.remove('hidden');
+    const area = document.getElementById('omSessionArea');
+    area.innerHTML = `
+      <div class="checkin-stage">
+        <div>
+          <div class="qr-frame"><div id="omQrCode"></div></div>
+          <div class="qr-timer" id="omQrTimer">refreshing every ${seconds}s</div>
+        </div>
+        <div>
+          <h3 style="font-size:14.5px; margin-bottom:8px;">Live roster</h3>
+          <div class="live-list" id="omLiveList"><div class="live-empty">No check-ins yet.</div></div>
+        </div>
+      </div>`;
+    qrInstance = new QRCode(document.getElementById('omQrCode'), {
+      text: `MSUATT|${offering.id}|${activeSession.id}|loading`,
+      width: 220, height: 220, correctLevel: QRCode.CorrectLevel.M
+    });
+    renderCurrentQr();
+    rotationTimer = setInterval(rotateToken, seconds * 1000);
+    subscribeAttendance();
+    renderRoster();
+  }
+
+  async function renderCurrentQr(){
+    const snap = await getDoc(doc(db, 'moduleOfferings', offering.id, 'sessions', activeSession.id));
+    if (!snap.exists()) return;
+    const token = snap.data().activeToken;
+    qrInstance.makeCode(`MSUATT|${offering.id}|${activeSession.id}|${token}`);
+  }
+
+  async function rotateToken(){
+    if (!activeSession) return;
+    const seconds = Number(institutionConfig.qrRotationSeconds) || 30;
+    const newToken = randomToken(8);
+    try {
+      await updateDoc(doc(db, 'moduleOfferings', offering.id, 'sessions', activeSession.id), {
+        activeToken: newToken, tokenExpiresAt: Timestamp.fromMillis(Date.now() + seconds * 1000)
+      });
+      qrInstance.makeCode(`MSUATT|${offering.id}|${activeSession.id}|${newToken}`);
+    } catch(e){ console.error('rotate failed', e); }
+  }
+
+  function subscribeAttendance(){
+    attendanceUnsub = onSnapshot(collection(db, 'moduleOfferings', offering.id, 'sessions', activeSession.id, 'attendance'), snap => {
+      presentRegIds = new Set(snap.docs.map(d => d.id));
+      const list = document.getElementById('omLiveList');
+      if (list){
+        if (!snap.size){
+          list.innerHTML = '<div class="live-empty">No check-ins yet.</div>';
+        } else {
+          list.innerHTML = snap.docs
+            .sort((a, b) => (b.data().scannedAt?.toMillis?.() || 0) - (a.data().scannedAt?.toMillis?.() || 0))
+            .map(d => `<div class="live-row"><span>${escapeHtml(d.data().name || d.id)}</span><span class="badge present">Present</span></div>`).join('');
+        }
+      }
+      renderRoster();
+    }, err => console.error('attendance sync failed', err));
+  }
+
+  async function stopSession(){
+    if (!activeSession) return;
+    try {
+      await updateDoc(doc(db, 'moduleOfferings', offering.id, 'sessions', activeSession.id), { status: 'closed' });
+    } catch(e){ console.error(e); }
+    clearInterval(rotationTimer); rotationTimer = null;
+    if (attendanceUnsub) attendanceUnsub();
+    attendanceUnsub = null;
+    activeSession = null;
+    presentRegIds = new Set();
+    containerEl.querySelector('[data-om="start"]').classList.remove('hidden');
+    containerEl.querySelector('[data-om="stop"]').classList.add('hidden');
+    document.getElementById('omSessionArea').innerHTML = '<p class="hint">Check-in closed. Click "Start new session" to open a new one.</p>';
+    renderRoster();
+    toast('Check-in closed.');
+  }
+
+  function teardown(){
+    clearInterval(rotationTimer); rotationTimer = null;
+    if (attendanceUnsub) attendanceUnsub();
+    if (enrollUnsub) enrollUnsub();
+    containerEl.removeEventListener('click', onClick);
+  }
+
+  function mount(){
+    render();
+    subscribeEnrollments();
+  }
+
+  return { mount, teardown };
+}
+
+/* ============ LECTURER ============ */
+let lecturerProfile = null;
+let lecturerOfferingManager = null;
+let lecturerReportsCtrl = null;
+
+function renderPendingNotice(kind, label){
+  return `<div class="card login-box" style="text-align:center;">
+    <h2 style="margin-bottom:8px;">Approval pending</h2>
+    <p class="hint">Your ${escapeHtml(label)} account has been created but hasn't been approved yet. Check back once your department has approved it.</p>
+    <button class="btn btn-ghost btn-sm" id="${kind}PendingSignOutBtn" style="margin-top:14px;">Sign out</button>
+  </div>`;
+}
+function wireSignOutFromFlow(kind){
+  const btn = document.getElementById(kind + 'PendingSignOutBtn');
+  if (!btn) return;
+  btn.addEventListener('click', async () => {
+    await signOut(auth);
+    if (kind === 'lecturer'){ lecturerProfile = null; renderLecturerAuthForm(); }
+    if (kind === 'chairperson'){ chairpersonProfile = null; renderChairpersonAuthForm(); }
+  });
+}
+
+async function initLecturerFlow(){
+  document.getElementById('lecturerDashboard').classList.add('hidden');
+  if (auth.currentUser){
+    try {
+      const snap = await getDoc(doc(db, 'lecturers', auth.currentUser.uid));
+      if (snap.exists()){
+        lecturerProfile = { uid: auth.currentUser.uid, ...snap.data() };
+        if (lecturerProfile.status === 'approved'){ await enterLecturerDashboard(); return; }
+        document.getElementById('lecturerFlow').innerHTML = renderPendingNotice('lecturer', 'Lecturer');
+        wireSignOutFromFlow('lecturer');
+        return;
+      }
+    } catch(e){ console.error(e); }
+    try { await signOut(auth); } catch(e){}
+  }
+  lecturerProfile = null;
+  renderLecturerAuthForm();
+}
+
+function renderLecturerAuthForm(){
+  const flow = document.getElementById('lecturerFlow');
+  flow.innerHTML = `
+    <div class="card login-box">
+      <nav class="tabs" role="tablist" style="margin-bottom:18px;">
+        <button class="tab-btn active" id="lecAuthTabLogin">Sign in</button>
+        <button class="tab-btn" id="lecAuthTabRegister">Register</button>
+      </nav>
+      <form id="lecLoginForm" class="field" style="gap:12px;">
+        <div class="field"><label for="lec-l-email">Email</label><input id="lec-l-email" type="email" required></div>
+        <div class="field"><label for="lec-l-pass">Password</label><input id="lec-l-pass" type="password" required></div>
+        <button class="btn btn-primary btn-block" type="submit">Sign in</button>
+        <p class="hint"><a href="#" id="lecForgotLink">Forgot password?</a></p>
+      </form>
+      <form id="lecRegisterForm" class="field hidden" style="gap:12px;">
+        <div class="field"><label for="lec-r-name">Full name</label><input id="lec-r-name" required></div>
+        <div class="field"><label for="lec-r-staffid">Staff ID</label><input id="lec-r-staffid" required></div>
+        <div class="field"><label for="lec-r-dept">Department</label><select id="lec-r-dept" required></select></div>
+        <div class="field"><label for="lec-r-email">Email</label><input id="lec-r-email" type="email" required></div>
+        <div class="field"><label for="lec-r-pass">Password</label><input id="lec-r-pass" type="password" minlength="6" required></div>
+        <button class="btn btn-primary btn-block" type="submit">Register</button>
+        <p class="hint">Your account needs approval from your department's Chairperson or the Admin before you can sign in.</p>
+      </form>
+    </div>`;
+  fillSelect('lec-r-dept', departmentsCache.map(d => [d.id, d.name]), 'Select a department');
+
+  const showLogin = () => {
+    document.getElementById('lecAuthTabLogin').classList.add('active');
+    document.getElementById('lecAuthTabRegister').classList.remove('active');
+    document.getElementById('lecLoginForm').classList.remove('hidden');
+    document.getElementById('lecRegisterForm').classList.add('hidden');
+  };
+  const showRegister = () => {
+    document.getElementById('lecAuthTabLogin').classList.remove('active');
+    document.getElementById('lecAuthTabRegister').classList.add('active');
+    document.getElementById('lecLoginForm').classList.add('hidden');
+    document.getElementById('lecRegisterForm').classList.remove('hidden');
+  };
+  document.getElementById('lecAuthTabLogin').addEventListener('click', showLogin);
+  document.getElementById('lecAuthTabRegister').addEventListener('click', showRegister);
+
+  document.getElementById('lecLoginForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email = document.getElementById('lec-l-email').value.trim();
+    const pass = document.getElementById('lec-l-pass').value;
+    try {
+      const cred = await signInWithEmailAndPassword(auth, email, pass);
+      const snap = await getDoc(doc(db, 'lecturers', cred.user.uid));
+      if (!snap.exists()){ await signOut(auth); toast('This account is not set up as a Lecturer.'); return; }
+      lecturerProfile = { uid: cred.user.uid, ...snap.data() };
+      if (lecturerProfile.status !== 'approved'){
+        flow.innerHTML = renderPendingNotice('lecturer', 'Lecturer');
+        wireSignOutFromFlow('lecturer');
+        return;
+      }
+      await enterLecturerDashboard();
+    } catch(err){ toast(authErrorMessage(err)); }
+  });
+  document.getElementById('lecForgotLink').addEventListener('click', async (e) => {
+    e.preventDefault();
+    const email = document.getElementById('lec-l-email').value.trim();
+    if (!email){ toast('Enter your email above first.'); return; }
+    try { await sendPasswordResetEmail(auth, email); toast('Password reset email sent.'); }
+    catch(err){ toast(authErrorMessage(err)); }
+  });
+
+  document.getElementById('lecRegisterForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const name = document.getElementById('lec-r-name').value.trim();
+    const staffId = document.getElementById('lec-r-staffid').value.trim();
+    const departmentId = document.getElementById('lec-r-dept').value;
+    const email = document.getElementById('lec-r-email').value.trim();
+    const pass = document.getElementById('lec-r-pass').value;
+    if (!departmentId){ toast('Select a department.'); return; }
+    try {
+      const cred = await createUserWithEmailAndPassword(auth, email, pass);
+      await setDoc(doc(db, 'lecturers', cred.user.uid), { name, staffId, departmentId, email, status: 'pending', createdAt: serverTimestamp() });
+      flow.innerHTML = renderPendingNotice('lecturer', 'Lecturer');
+      wireSignOutFromFlow('lecturer');
+      toast('Account created — awaiting approval.');
+    } catch(err){ toast(authErrorMessage(err)); }
+  });
+}
+
+async function enterLecturerDashboard(){
+  document.getElementById('lecturerFlow').innerHTML = '';
+  document.getElementById('lecturerDashboard').classList.remove('hidden');
+  document.getElementById('lecturerNameLabel').textContent = `${lecturerProfile.name} · ${departmentName(lecturerProfile.departmentId)}`;
+  await waitForCatalog();
+  renderLecturerActiveTab();
+  if (!lecturerReportsCtrl){
+    lecturerReportsCtrl = createReportsController({
+      prefix: 'lecturer',
+      getOfferings: () => offeringsCache.filter(o => (o.lecturerIds || []).includes(lecturerProfile.uid))
+    });
+  }
+  lecturerReportsCtrl.populateSelect();
+}
+
+function renderLecturerActiveTab(){
+  if (!lecturerProfile || document.getElementById('lecturerDashboard').classList.contains('hidden')) return;
+  document.getElementById('lecturerNameLabel').textContent = `${lecturerProfile.name} · ${departmentName(lecturerProfile.departmentId)}`;
+  const myOfferings = offeringsCache.filter(o => (o.lecturerIds || []).includes(lecturerProfile.uid));
+  const listEl = document.getElementById('lecturerOfferingsList');
+  const emptyEl = document.getElementById('lecturerOfferingsEmpty');
+  if (!myOfferings.length){
+    listEl.innerHTML = '';
+    emptyEl.classList.remove('hidden');
+  } else {
+    emptyEl.classList.add('hidden');
+    listEl.innerHTML = myOfferings.map(o => `
+      <div class="item-row">
+        <div><div class="title">${escapeHtml(offeringLabel(o))}</div>
+          <div class="meta">DP threshold ${escapeHtml(o.dpThreshold)}% ${o.venue ? '· ' + escapeHtml(o.venue) : ''}</div></div>
+        <div class="item-actions"><button class="btn btn-primary btn-sm" data-manage-offering="${escapeHtml(o.id)}">Manage</button></div>
+      </div>`).join('');
+    listEl.querySelectorAll('[data-manage-offering]').forEach(btn => {
+      btn.addEventListener('click', () => openLecturerManage(btn.getAttribute('data-manage-offering')));
+    });
+  }
+  if (lecturerReportsCtrl) lecturerReportsCtrl.populateSelect();
+}
+
+function openLecturerManage(offeringId){
+  const offering = offeringById(offeringId);
+  if (!offering) return;
+  const panel = document.getElementById('lecturerManagePanel');
+  if (lecturerOfferingManager) lecturerOfferingManager.teardown();
+  lecturerOfferingManager = createOfferingManager(panel, offering, { uid: lecturerProfile.uid });
+  lecturerOfferingManager.mount();
+  panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+wireTabGroup('[data-ltab]', 'data-ltab', 'lpanel-', (key) => {
+  if (key === 'reports' && lecturerReportsCtrl) lecturerReportsCtrl.refresh();
+});
+
+document.getElementById('lecturerSignOutBtn').addEventListener('click', async () => {
+  if (lecturerOfferingManager){ lecturerOfferingManager.teardown(); lecturerOfferingManager = null; }
+  await signOut(auth);
+  lecturerProfile = null;
+  document.getElementById('lecturerDashboard').classList.add('hidden');
+  renderLecturerAuthForm();
+});
+document.getElementById('lecturerBackBtn').addEventListener('click', () => {
+  showScreen('role');
+});
+
+/* ============ CHAIRPERSON ============ */
+let chairpersonProfile = null;
+let chairpersonOfferingManager = null;
+let chairpersonReportsCtrl = null;
+
+async function setLecturerStatus(uid, status){
+  try { await updateDoc(doc(db, 'lecturers', uid), { status }); toast(status === 'approved' ? 'Lecturer approved.' : 'Lecturer suspended.'); }
+  catch(err){ toast(authErrorMessage(err)); }
+}
+async function setChairpersonStatus(uid, status){
+  try { await updateDoc(doc(db, 'chairpersons', uid), { status }); toast(status === 'approved' ? 'Chairperson approved.' : 'Chairperson suspended.'); }
+  catch(err){ toast(authErrorMessage(err)); }
+}
+
+async function initChairpersonFlow(){
+  document.getElementById('chairpersonDashboard').classList.add('hidden');
+  if (auth.currentUser){
+    try {
+      const snap = await getDoc(doc(db, 'chairpersons', auth.currentUser.uid));
+      if (snap.exists()){
+        chairpersonProfile = { uid: auth.currentUser.uid, ...snap.data() };
+        if (chairpersonProfile.status === 'approved'){ await enterChairpersonDashboard(); return; }
+        document.getElementById('chairpersonFlow').innerHTML = renderPendingNotice('chairperson', 'Chairperson');
+        wireSignOutFromFlow('chairperson');
+        return;
+      }
+    } catch(e){ console.error(e); }
+    try { await signOut(auth); } catch(e){}
+  }
+  chairpersonProfile = null;
+  renderChairpersonAuthForm();
+}
+
+function renderChairpersonAuthForm(){
+  const flow = document.getElementById('chairpersonFlow');
+  flow.innerHTML = `
+    <div class="card login-box">
+      <nav class="tabs" role="tablist" style="margin-bottom:18px;">
+        <button class="tab-btn active" id="cpAuthTabLogin">Sign in</button>
+        <button class="tab-btn" id="cpAuthTabRegister">Register</button>
+      </nav>
+      <form id="cpLoginForm" class="field" style="gap:12px;">
+        <div class="field"><label for="cp-l-email">Email</label><input id="cp-l-email" type="email" required></div>
+        <div class="field"><label for="cp-l-pass">Password</label><input id="cp-l-pass" type="password" required></div>
+        <button class="btn btn-primary btn-block" type="submit">Sign in</button>
+        <p class="hint"><a href="#" id="cpForgotLink">Forgot password?</a></p>
+      </form>
+      <form id="cpRegisterForm" class="field hidden" style="gap:12px;">
+        <div class="field"><label for="cp-r-name">Full name</label><input id="cp-r-name" required></div>
+        <div class="field"><label for="cp-r-staffid">Staff ID</label><input id="cp-r-staffid" required></div>
+        <div class="field"><label for="cp-r-dept">Department</label><select id="cp-r-dept" required></select></div>
+        <div class="field"><label for="cp-r-email">Email</label><input id="cp-r-email" type="email" required></div>
+        <div class="field"><label for="cp-r-pass">Password</label><input id="cp-r-pass" type="password" minlength="6" required></div>
+        <button class="btn btn-primary btn-block" type="submit">Register</button>
+        <p class="hint">Your account needs approval from the Admin before you can sign in.</p>
+      </form>
+    </div>`;
+  fillSelect('cp-r-dept', departmentsCache.map(d => [d.id, d.name]), 'Select a department');
+
+  const showLogin = () => {
+    document.getElementById('cpAuthTabLogin').classList.add('active');
+    document.getElementById('cpAuthTabRegister').classList.remove('active');
+    document.getElementById('cpLoginForm').classList.remove('hidden');
+    document.getElementById('cpRegisterForm').classList.add('hidden');
+  };
+  const showRegister = () => {
+    document.getElementById('cpAuthTabLogin').classList.remove('active');
+    document.getElementById('cpAuthTabRegister').classList.add('active');
+    document.getElementById('cpLoginForm').classList.add('hidden');
+    document.getElementById('cpRegisterForm').classList.remove('hidden');
+  };
+  document.getElementById('cpAuthTabLogin').addEventListener('click', showLogin);
+  document.getElementById('cpAuthTabRegister').addEventListener('click', showRegister);
+
+  document.getElementById('cpLoginForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email = document.getElementById('cp-l-email').value.trim();
+    const pass = document.getElementById('cp-l-pass').value;
+    try {
+      const cred = await signInWithEmailAndPassword(auth, email, pass);
+      const snap = await getDoc(doc(db, 'chairpersons', cred.user.uid));
+      if (!snap.exists()){ await signOut(auth); toast('This account is not set up as a Chairperson.'); return; }
+      chairpersonProfile = { uid: cred.user.uid, ...snap.data() };
+      if (chairpersonProfile.status !== 'approved'){
+        flow.innerHTML = renderPendingNotice('chairperson', 'Chairperson');
+        wireSignOutFromFlow('chairperson');
+        return;
+      }
+      await enterChairpersonDashboard();
+    } catch(err){ toast(authErrorMessage(err)); }
+  });
+  document.getElementById('cpForgotLink').addEventListener('click', async (e) => {
+    e.preventDefault();
+    const email = document.getElementById('cp-l-email').value.trim();
+    if (!email){ toast('Enter your email above first.'); return; }
+    try { await sendPasswordResetEmail(auth, email); toast('Password reset email sent.'); }
+    catch(err){ toast(authErrorMessage(err)); }
+  });
+
+  document.getElementById('cpRegisterForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const name = document.getElementById('cp-r-name').value.trim();
+    const staffId = document.getElementById('cp-r-staffid').value.trim();
+    const departmentId = document.getElementById('cp-r-dept').value;
+    const email = document.getElementById('cp-r-email').value.trim();
+    const pass = document.getElementById('cp-r-pass').value;
+    if (!departmentId){ toast('Select a department.'); return; }
+    try {
+      const cred = await createUserWithEmailAndPassword(auth, email, pass);
+      await setDoc(doc(db, 'chairpersons', cred.user.uid), { name, staffId, departmentId, email, status: 'pending', createdAt: serverTimestamp() });
+      flow.innerHTML = renderPendingNotice('chairperson', 'Chairperson');
+      wireSignOutFromFlow('chairperson');
+      toast('Account created — awaiting approval.');
+    } catch(err){ toast(authErrorMessage(err)); }
+  });
+}
+
+async function enterChairpersonDashboard(){
+  document.getElementById('chairpersonFlow').innerHTML = '';
+  document.getElementById('chairpersonDashboard').classList.remove('hidden');
+  document.getElementById('chairpersonNameLabel').textContent = `${chairpersonProfile.name} · ${departmentName(chairpersonProfile.departmentId)}`;
+  await waitForCatalog();
+  renderChairpersonActiveTab();
+  if (!chairpersonReportsCtrl){
+    chairpersonReportsCtrl = createReportsController({
+      prefix: 'chairperson',
+      getOfferings: () => offeringsCache.filter(o => o.departmentId === chairpersonProfile.departmentId)
+    });
+  }
+  chairpersonReportsCtrl.populateSelect();
+}
+
+function renderChairpersonActiveTab(){
+  if (!chairpersonProfile || document.getElementById('chairpersonDashboard').classList.contains('hidden')) return;
+  document.getElementById('chairpersonNameLabel').textContent = `${chairpersonProfile.name} · ${departmentName(chairpersonProfile.departmentId)}`;
+
+  const deptOfferings = offeringsCache.filter(o => o.departmentId === chairpersonProfile.departmentId);
+  const listEl = document.getElementById('chairpersonOfferingsList');
+  const emptyEl = document.getElementById('chairpersonOfferingsEmpty');
+  if (!deptOfferings.length){
+    listEl.innerHTML = '';
+    emptyEl.classList.remove('hidden');
+  } else {
+    emptyEl.classList.add('hidden');
+    listEl.innerHTML = deptOfferings.map(o => {
+      const names = (o.lecturerIds || []).map(uid => { const l = lecturersCache.find(x => x.id === uid); return l ? l.name : null; }).filter(Boolean);
+      return `<div class="item-row">
+        <div><div class="title">${escapeHtml(offeringLabel(o))}</div>
+          <div class="meta">DP threshold ${escapeHtml(o.dpThreshold)}% ${names.length ? '· ' + escapeHtml(names.join(', ')) : ''}</div></div>
+        <div class="item-actions"><button class="btn btn-primary btn-sm" data-manage-offering="${escapeHtml(o.id)}">Manage</button></div>
+      </div>`;
+    }).join('');
+    listEl.querySelectorAll('[data-manage-offering]').forEach(btn => {
+      btn.addEventListener('click', () => openChairpersonManage(btn.getAttribute('data-manage-offering')));
+    });
+  }
+
+  renderChairpersonStaff();
+  if (chairpersonReportsCtrl) chairpersonReportsCtrl.populateSelect();
+}
+
+function renderChairpersonStaff(){
+  const deptLecturers = lecturersCache.filter(l => l.departmentId === chairpersonProfile.departmentId);
+  const tbody = document.getElementById('chairpersonStaffTableBody');
+  const empty = document.getElementById('chairpersonStaffEmpty');
+  if (!tbody) return;
+  if (!deptLecturers.length){ tbody.innerHTML = ''; empty.classList.remove('hidden'); return; }
+  empty.classList.add('hidden');
+  tbody.innerHTML = deptLecturers.map(l => `
+    <tr>
+      <td>${escapeHtml(l.name)}</td><td class="mono">${escapeHtml(l.staffId || '')}</td><td>${escapeHtml(l.email || '')}</td>
+      <td><span class="badge ${l.status === 'approved' ? 'approved' : 'pending'}">${escapeHtml(l.status)}</span></td>
+      <td class="row-actions">
+        ${l.status === 'pending'
+          ? `<button class="btn btn-primary btn-sm" data-approve-lecturer="${escapeHtml(l.id)}">Approve</button>`
+          : `<button class="btn btn-danger-ghost btn-sm" data-suspend-lecturer="${escapeHtml(l.id)}">Suspend</button>`}
+      </td>
+    </tr>`).join('');
+  tbody.querySelectorAll('[data-approve-lecturer]').forEach(btn => btn.addEventListener('click', () => setLecturerStatus(btn.getAttribute('data-approve-lecturer'), 'approved')));
+  tbody.querySelectorAll('[data-suspend-lecturer]').forEach(btn => btn.addEventListener('click', () => setLecturerStatus(btn.getAttribute('data-suspend-lecturer'), 'pending')));
+}
+
+function openChairpersonManage(offeringId){
+  const offering = offeringById(offeringId);
+  if (!offering) return;
+  const panel = document.getElementById('chairpersonManagePanel');
+  if (chairpersonOfferingManager) chairpersonOfferingManager.teardown();
+  chairpersonOfferingManager = createOfferingManager(panel, offering, { uid: chairpersonProfile.uid });
+  chairpersonOfferingManager.mount();
+  panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+wireTabGroup('[data-ctab]', 'data-ctab', 'cpanel-', (key) => {
+  if (key === 'reports' && chairpersonReportsCtrl) chairpersonReportsCtrl.refresh();
+  if (key === 'staff') renderChairpersonStaff();
+});
+
+document.getElementById('chairpersonSignOutBtn').addEventListener('click', async () => {
+  if (chairpersonOfferingManager){ chairpersonOfferingManager.teardown(); chairpersonOfferingManager = null; }
+  await signOut(auth);
+  chairpersonProfile = null;
+  document.getElementById('chairpersonDashboard').classList.add('hidden');
+  renderChairpersonAuthForm();
+});
+document.getElementById('chairpersonBackBtn').addEventListener('click', () => {
+  showScreen('role');
+});
+
+/* ============ ADMIN ============ */
+let adminReportsCtrl = null;
+
+document.getElementById('adminLoginForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const email = document.getElementById('a-email').value.trim();
+  const pass = document.getElementById('a-pass').value;
+  try {
+    const cred = await signInWithEmailAndPassword(auth, email, pass);
+    const snap = await getDoc(doc(db, 'admins', cred.user.uid));
+    if (!snap.exists()){ await signOut(auth); toast('This account is not set up as an Admin.'); return; }
+    document.getElementById('adminEmailLabel').textContent = email;
+    document.getElementById('adminLoginWrap').classList.add('hidden');
+    document.getElementById('adminDashboard').classList.remove('hidden');
+    await waitForCatalog();
+    renderAdminActiveTab();
+    if (!adminReportsCtrl){
+      adminReportsCtrl = createReportsController({ prefix: 'admin', getOfferings: () => offeringsCache });
+    }
+    adminReportsCtrl.populateSelect();
+  } catch(err){ toast(authErrorMessage(err)); }
+});
+document.getElementById('adminForgotLink').addEventListener('click', async (e) => {
+  e.preventDefault();
+  const email = document.getElementById('a-email').value.trim();
+  if (!email){ toast('Enter your email above first.'); return; }
+  try { await sendPasswordResetEmail(auth, email); toast('Password reset email sent.'); }
+  catch(err){ toast(authErrorMessage(err)); }
+});
+document.getElementById('adminSignOutBtn').addEventListener('click', async () => {
+  await signOut(auth);
+  document.getElementById('adminDashboard').classList.add('hidden');
+  document.getElementById('adminLoginWrap').classList.remove('hidden');
+});
+document.getElementById('adminBackBtn').addEventListener('click', () => showScreen('role'));
+
+/* ---- Structure: faculties / departments / programmes ---- */
+document.getElementById('facultyForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const name = document.getElementById('f-name').value.trim();
+  const code = document.getElementById('f-code').value.trim();
+  const dpThreshold = Number(document.getElementById('f-dp').value);
+  try {
+    await addDoc(collection(db, 'faculties'), { name, code, dpThreshold });
+    e.target.reset(); document.getElementById('f-dp').value = 75;
+    toast('Faculty added.');
+  } catch(err){ toast(authErrorMessage(err)); }
+});
+document.getElementById('departmentForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const name = document.getElementById('d-name').value.trim();
+  const code = document.getElementById('d-code').value.trim();
+  const facultyId = document.getElementById('d-faculty').value;
+  if (!facultyId){ toast('Select a faculty.'); return; }
+  try {
+    await addDoc(collection(db, 'departments'), { name, code, facultyId });
+    e.target.reset();
+    toast('Department added.');
+  } catch(err){ toast(authErrorMessage(err)); }
+});
+document.getElementById('programmeForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const name = document.getElementById('p-name').value.trim();
+  const code = document.getElementById('p-code').value.trim();
+  const departmentId = document.getElementById('p-department').value;
+  const level = document.getElementById('p-level').value;
+  if (!departmentId){ toast('Select a department.'); return; }
+  try {
+    await addDoc(collection(db, 'programmes'), { name, code, departmentId, level });
+    e.target.reset();
+    toast('Programme added.');
+  } catch(err){ toast(authErrorMessage(err)); }
+});
+
+/* ---- Modules ---- */
+document.getElementById('moduleForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const code = document.getElementById('mo-code').value.trim();
+  const name = document.getElementById('mo-name').value.trim();
+  const departmentId = document.getElementById('mo-department').value;
+  const creditHours = Number(document.getElementById('mo-credit').value) || 0;
+  const dpRaw = document.getElementById('mo-dp').value;
+  if (!departmentId){ toast('Select a department.'); return; }
+  try {
+    await addDoc(collection(db, 'modules'), {
+      code, name, departmentId, creditHours,
+      dpOverride: dpRaw === '' ? null : Number(dpRaw)
+    });
+    e.target.reset(); document.getElementById('mo-credit').value = 12;
+    toast('Module added.');
+  } catch(err){ toast(authErrorMessage(err)); }
+});
+
+/* ---- Offerings ---- */
+document.getElementById('offeringForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const moduleId = document.getElementById('of-module').value;
+  if (!moduleId){ toast('Select a module.'); return; }
+  const mod = moduleById(moduleId);
+  const departmentId = mod ? mod.departmentId : '';
+  const year = document.getElementById('of-year').value.trim();
+  const semester = document.getElementById('of-semester').value;
+  const campus = document.getElementById('of-campus').value;
+  const day = document.getElementById('of-day').value;
+  const start = document.getElementById('of-start').value;
+  const end = document.getElementById('of-end').value;
+  const venue = document.getElementById('of-venue').value.trim();
+  const dpRaw = document.getElementById('of-dp').value;
+  const dpThreshold = dpRaw === '' ? resolveDpThreshold(moduleId, departmentId) : Number(dpRaw);
+  const lecturerIds = Array.from(document.getElementById('of-lecturers').selectedOptions).map(o => o.value);
+  const programmeIds = Array.from(document.getElementById('of-programmes').selectedOptions).map(o => o.value);
+  try {
+    await addDoc(collection(db, 'moduleOfferings'), {
+      moduleId, moduleCode: mod ? mod.code : '', moduleName: mod ? mod.name : '', departmentId,
+      year, semester, campus, day, start, end, venue, dpThreshold,
+      lecturerIds, programmeIds, sessionsHeld: 0, createdAt: serverTimestamp()
+    });
+    e.target.reset();
+    toast('Module offering added.');
+  } catch(err){ toast(authErrorMessage(err)); }
+});
+
+/* ---- Import & enrol (admin-wide: any module offering) ---- */
+document.getElementById('importFile').addEventListener('change', (e) => {
+  const file = e.target.files && e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => { document.getElementById('importText').value = String(reader.result || ''); };
+  reader.readAsText(file);
+});
+document.getElementById('importBtn').addEventListener('click', async () => {
+  const offeringId = document.getElementById('importOfferingSelect').value;
+  if (!offeringId){ toast('Select a module offering first.'); return; }
+  const rows = parseCsv(document.getElementById('importText').value);
+  if (!rows.length){ toast('Paste or upload some rows first.'); return; }
+  const statusEl = document.getElementById('importStatus');
+  statusEl.textContent = 'Importing…';
+  const { count, errors } = await importCsvToOffering(offeringId, rows);
+  statusEl.textContent = `Imported ${count} student${count === 1 ? '' : 's'}${errors ? `, ${errors} row(s) failed` : ''}.`;
+  document.getElementById('importText').value = '';
+  document.getElementById('importFile').value = '';
+  toast(`Imported ${count} student${count === 1 ? '' : 's'}.`);
+});
+
+/* ---- Settings ---- */
+document.getElementById('settingsForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const year = document.getElementById('s-year').value.trim();
+  const semester = document.getElementById('s-semester').value;
+  const qrRotationSeconds = Number(document.getElementById('s-qr').value) || 30;
+  try {
+    await setDoc(doc(db, 'institution', 'settings'), { year, semester, qrRotationSeconds }, { merge: true });
+    toast('Settings saved.');
+  } catch(err){ toast(authErrorMessage(err)); }
+});
+
+/* ---- render: structure lists ---- */
+function renderFacultiesList(){
+  const el = document.getElementById('facultiesList');
+  const empty = document.getElementById('facultiesEmpty');
+  if (!el) return;
+  if (!facultiesCache.length){ el.innerHTML = ''; empty.classList.remove('hidden'); return; }
+  empty.classList.add('hidden');
+  el.innerHTML = facultiesCache.map(f => `
+    <div class="item-row">
+      <div><div class="title">${escapeHtml(f.name)} <span class="hint">(${escapeHtml(f.code)})</span></div>
+        <div class="meta">Default DP threshold ${escapeHtml(f.dpThreshold)}%</div></div>
+      <button class="btn btn-danger-ghost btn-sm" data-del-faculty="${escapeHtml(f.id)}">Remove</button>
+    </div>`).join('');
+  el.querySelectorAll('[data-del-faculty]').forEach(btn => btn.addEventListener('click', () => confirmDelete('faculties', btn.getAttribute('data-del-faculty'), 'faculty')));
+}
+function renderDepartmentsList(){
+  const el = document.getElementById('departmentsList');
+  const empty = document.getElementById('departmentsEmpty');
+  if (!el) return;
+  if (!departmentsCache.length){ el.innerHTML = ''; empty.classList.remove('hidden'); return; }
+  empty.classList.add('hidden');
+  el.innerHTML = departmentsCache.map(d => {
+    const fac = facultyById(d.facultyId);
+    return `<div class="item-row">
+      <div><div class="title">${escapeHtml(d.name)} <span class="hint">(${escapeHtml(d.code)})</span></div>
+        <div class="meta">${escapeHtml(fac ? fac.name : '—')}</div></div>
+      <button class="btn btn-danger-ghost btn-sm" data-del-department="${escapeHtml(d.id)}">Remove</button>
+    </div>`;
+  }).join('');
+  el.querySelectorAll('[data-del-department]').forEach(btn => btn.addEventListener('click', () => confirmDelete('departments', btn.getAttribute('data-del-department'), 'department')));
+}
+function renderProgrammesList(){
+  const el = document.getElementById('programmesList');
+  const empty = document.getElementById('programmesEmpty');
+  if (!el) return;
+  if (!programmesCache.length){ el.innerHTML = ''; empty.classList.remove('hidden'); return; }
+  empty.classList.add('hidden');
+  el.innerHTML = programmesCache.map(p => `
+    <div class="item-row">
+      <div><div class="title">${escapeHtml(p.name)} <span class="hint">(${escapeHtml(p.code)})</span></div>
+        <div class="meta">${escapeHtml(departmentName(p.departmentId))} · ${escapeHtml(p.level || '')}</div></div>
+      <button class="btn btn-danger-ghost btn-sm" data-del-programme="${escapeHtml(p.id)}">Remove</button>
+    </div>`).join('');
+  el.querySelectorAll('[data-del-programme]').forEach(btn => btn.addEventListener('click', () => confirmDelete('programmes', btn.getAttribute('data-del-programme'), 'programme')));
+}
+function renderModulesList(){
+  const el = document.getElementById('modulesList');
+  const empty = document.getElementById('modulesEmpty');
+  if (!el) return;
+  if (!modulesCache.length){ el.innerHTML = ''; empty.classList.remove('hidden'); return; }
+  empty.classList.add('hidden');
+  el.innerHTML = modulesCache.map(m => `
+    <div class="item-row">
+      <div><div class="title">${escapeHtml(m.code)} — ${escapeHtml(m.name)}</div>
+        <div class="meta">${escapeHtml(departmentName(m.departmentId))} · ${escapeHtml(m.creditHours)} credit hrs ${m.dpOverride != null ? '· DP override ' + escapeHtml(m.dpOverride) + '%' : ''}</div></div>
+      <button class="btn btn-danger-ghost btn-sm" data-del-module="${escapeHtml(m.id)}">Remove</button>
+    </div>`).join('');
+  el.querySelectorAll('[data-del-module]').forEach(btn => btn.addEventListener('click', () => confirmDelete('modules', btn.getAttribute('data-del-module'), 'module')));
+}
+function renderOfferingsList(){
+  const el = document.getElementById('offeringsList');
+  const empty = document.getElementById('offeringsEmpty');
+  if (!el) return;
+  if (!offeringsCache.length){ el.innerHTML = ''; empty.classList.remove('hidden'); return; }
+  empty.classList.add('hidden');
+  el.innerHTML = offeringsCache.map(o => {
+    const names = (o.lecturerIds || []).map(uid => { const l = lecturersCache.find(x => x.id === uid); return l ? l.name : null; }).filter(Boolean);
+    return `<div class="item-row">
+      <div><div class="title">${escapeHtml(offeringLabel(o))}</div>
+        <div class="meta">DP ${escapeHtml(o.dpThreshold)}% ${o.venue ? '· ' + escapeHtml(o.venue) : ''} ${names.length ? '· ' + escapeHtml(names.join(', ')) : '· no lecturer assigned yet'}</div></div>
+      <button class="btn btn-danger-ghost btn-sm" data-del-offering="${escapeHtml(o.id)}">Remove</button>
+    </div>`;
+  }).join('');
+  el.querySelectorAll('[data-del-offering]').forEach(btn => btn.addEventListener('click', () => confirmDelete('moduleOfferings', btn.getAttribute('data-del-offering'), 'module offering')));
+}
+function renderAdminStaffTable(){
+  const rows = [
+    ...lecturersCache.map(l => ({ ...l, role: 'Lecturer', coll: 'lecturers' })),
+    ...chairpersonsCache.map(c => ({ ...c, role: 'Chairperson', coll: 'chairpersons' }))
+  ].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+  const tbody = document.getElementById('staffTableBody');
+  const empty = document.getElementById('staffEmpty');
+  if (!tbody) return;
+  if (!rows.length){ tbody.innerHTML = ''; empty.classList.remove('hidden'); return; }
+  empty.classList.add('hidden');
+  tbody.innerHTML = rows.map(r => `
+    <tr>
+      <td>${escapeHtml(r.name)}</td><td>${escapeHtml(r.role)}</td><td class="mono">${escapeHtml(r.staffId || '')}</td>
+      <td>${escapeHtml(r.email || '')}</td><td>${escapeHtml(departmentName(r.departmentId))}</td>
+      <td><span class="badge ${r.status === 'approved' ? 'approved' : 'pending'}">${escapeHtml(r.status)}</span></td>
+      <td class="row-actions">
+        ${r.status === 'pending'
+          ? `<button class="btn btn-primary btn-sm" data-approve="${escapeHtml(r.id)}" data-role="${r.role}">Approve</button>`
+          : `<button class="btn btn-danger-ghost btn-sm" data-suspend="${escapeHtml(r.id)}" data-role="${r.role}">Suspend</button>`}
+      </td>
+    </tr>`).join('');
+  tbody.querySelectorAll('[data-approve]').forEach(btn => btn.addEventListener('click', () => {
+    const uid = btn.getAttribute('data-approve');
+    btn.getAttribute('data-role') === 'Lecturer' ? setLecturerStatus(uid, 'approved') : setChairpersonStatus(uid, 'approved');
+  }));
+  tbody.querySelectorAll('[data-suspend]').forEach(btn => btn.addEventListener('click', () => {
+    const uid = btn.getAttribute('data-suspend');
+    btn.getAttribute('data-role') === 'Lecturer' ? setLecturerStatus(uid, 'pending') : setChairpersonStatus(uid, 'pending');
+  }));
+}
+
+async function confirmDelete(collectionName, id, label){
+  if (!window.confirm(`Remove this ${label}? This can't be undone.`)) return;
+  try { await deleteDoc(doc(db, collectionName, id)); toast('Removed.'); }
+  catch(err){ toast(authErrorMessage(err)); }
+}
+
+function renderAdminActiveTab(){
+  if (document.getElementById('adminDashboard').classList.contains('hidden')) return;
+  renderFacultiesList();
+  renderDepartmentsList();
+  renderProgrammesList();
+  renderModulesList();
+  renderOfferingsList();
+  renderAdminStaffTable();
+  const s = document.getElementById('s-year');
+  if (s && !s.value) s.value = institutionConfig.year || '';
+  const semEl = document.getElementById('s-semester');
+  if (semEl && institutionConfig.semester) semEl.value = institutionConfig.semester;
+  const qrEl = document.getElementById('s-qr');
+  if (qrEl && institutionConfig.qrRotationSeconds && !qrEl.dataset.touched) qrEl.value = institutionConfig.qrRotationSeconds;
+  if (adminReportsCtrl) adminReportsCtrl.populateSelect();
+}
+
+wireTabGroup('[data-atab]', 'data-atab', 'apanel-', (key) => {
+  if (key === 'reports' && adminReportsCtrl) adminReportsCtrl.refresh();
+});
+
+/* ============ BOOT ============ */
+startCatalogSync();
+</script>
+</body>
+</html>
